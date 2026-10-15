@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-scheme="auto" data-theme-mode="city">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spunfor demo app · New Orleans sample</title>
+<meta name="description" content="Interactive demo of a Spunfor trip app: Home, Map, Explore, Saved and Help. Open-now filter, Surprise Me, personas, Time Machine, plan, votes, passport and journal. Sample data: New Orleans.">
+<meta name="theme-color" content="#F2EBDD">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<div class="shell" id="shell">
+  <div class="demo-bar"><span><b>Demo</b> · sample data, nothing is sent anywhere</span><a href="../index.html">← Spunfor</a></div>
+  <header class="top">
+    <button class="brand" id="brand" aria-label="Go to Home"><img src="../logo-mark.svg" alt="" width="34" height="34"><span><b id="tripTitle">Trip</b><small id="tripSub"></small></span></button>
+    <div class="top-actions">
+      <button class="holla" id="btnHolla" aria-pressed="false" title="Show only what is open right now">Holla Holla</button>
+      <button class="icon-btn" id="btnInstall" aria-label="Install app" title="Install app"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>
+      <button class="icon-btn" id="btnTheme" aria-label="Settings and theme" title="Settings and theme"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+    </div>
+  </header>
+  <main id="view" tabindex="-1"></main>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="App sections"></nav>
+</div>
+<div class="sheet-wrap" id="sheetWrap" hidden>
+  <div class="scrim" data-act="closeSheet"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1"></section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/markercluster/leaflet.markercluster.js"></script>
+<script src="config.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>
