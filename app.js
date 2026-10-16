@@ -113,5 +113,19 @@ function spiral(cx,cy,r0,r1,turns,n,start){var p=[];for(var i=0;i<=n;i++){var t=
   function req(){if(!tick){tick=true;requestAnimationFrame(upd)}}
   window.addEventListener('scroll',req,{passive:true});upd();
 })();
+/* ---------- demo frame toggle (Mobile | Desktop) ---------- */
+(function(){
+  var fr=$('demoFrame');if(!fr)return;
+  var bm=$('segMobile'),bd=$('segDesktop'),mq=window.matchMedia?matchMedia('(max-width:600px)'):{matches:false};
+  function set(v){
+    if(v==='desktop'&&mq.matches)v='mobile';
+    fr.classList.toggle('is-mobile',v==='mobile');fr.classList.toggle('is-desktop',v==='desktop');
+    bm.setAttribute('aria-pressed',v==='mobile');bd.setAttribute('aria-pressed',v==='desktop');
+  }
+  function sync(){bd.disabled=mq.matches;bd.title=mq.matches?'Desktop view needs a wider screen':'';if(mq.matches)set('mobile')}
+  bm.addEventListener('click',function(){set('mobile')});bd.addEventListener('click',function(){set('desktop')});
+  if(mq.addEventListener)mq.addEventListener('change',sync);
+  sync();set(mq.matches||window.innerWidth<1000?'mobile':'desktop');
+})();
 data={};idx=0;busy=false;if(log)ask();
 })();

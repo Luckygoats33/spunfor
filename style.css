@@ -314,3 +314,26 @@ a.m-btn{text-decoration:none}
 .honest-note{margin:0 0 14px;padding:12px 14px;border:2px solid currentColor;border-radius:12px;background:rgba(200,243,29,.18);font-weight:600;line-height:1.4}
 .pv-empty{max-width:560px}
 .saas-tab{font-weight:700}
+
+/* live demo frame */
+.demo-stage{margin:0 0 clamp(36px,5vw,56px)}
+.demo-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.seg{display:inline-flex;border:3px solid var(--bone);border-radius:99px;overflow:hidden}
+.seg-b{font-family:var(--disp);font-weight:800;font-size:.9rem;letter-spacing:-.02em;padding:11px 22px;background:transparent;color:var(--bone);border:0;cursor:pointer;min-height:44px}
+.seg-b[aria-pressed=true]{background:var(--lime);color:var(--ink)}
+.seg-b:disabled{opacity:.45;cursor:not-allowed}
+.seg-b:focus-visible,#demoNew:focus-visible{outline:3px solid var(--tom);outline-offset:3px}
+.demo-frame{margin:0 auto;background:var(--ink);border:3px solid var(--bone);transition:max-width .25s ease}
+.demo-frame iframe{display:block;width:100%;border:0;background:#fff}
+.demo-frame .chrome{display:none}
+.demo-frame.is-mobile{max-width:390px;border-radius:44px;padding:14px;box-shadow:0 0 0 6px var(--ink),10px 10px 0 var(--lime)}
+.demo-frame.is-mobile iframe{height:min(780px,78vh);min-height:560px;border-radius:30px}
+.demo-frame.is-desktop{max-width:100%;border-radius:14px;overflow:hidden;box-shadow:10px 10px 0 var(--lime)}
+.demo-frame.is-desktop .chrome{display:flex;align-items:center;gap:7px;padding:10px 14px;background:var(--bone2);color:var(--ink);border-bottom:3px solid var(--ink);font:600 .8rem var(--mono,monospace)}
+.demo-frame.is-desktop .chrome i{width:12px;height:12px;border-radius:50%;background:var(--tom);border:2px solid var(--ink)}
+.demo-frame.is-desktop .chrome i:nth-child(2){background:var(--lime)}
+.demo-frame.is-desktop .chrome i:nth-child(3){background:var(--bone)}
+.demo-frame.is-desktop .chrome span{margin-left:10px;flex:1;background:var(--bone);border:2px solid var(--ink);border-radius:99px;padding:4px 14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.demo-frame.is-desktop iframe{height:min(760px,80vh);min-height:520px}
+.demo-fine{text-align:center;margin:16px 0 0}
+@media(max-width:600px){.demo-bar{justify-content:center}.demo-frame.is-mobile{max-width:100%;border-radius:34px;padding:10px}}

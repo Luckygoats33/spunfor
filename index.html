@@ -76,6 +76,20 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
       <h2>Pocket-sized, fast, <em>honest</em>.</h2>
       <p class="sub">Every venue shows where its hours came from. Price tiers are labeled as estimates. Your saves and journal stay on your device.</p>
     </div>
+    <div class="demo-stage reveal" id="demo" aria-label="Live demo">
+      <div class="demo-bar">
+        <div class="seg" role="group" aria-label="Demo view">
+          <button type="button" class="seg-b" id="segMobile" data-view="mobile" aria-pressed="true">Mobile</button>
+          <button type="button" class="seg-b" id="segDesktop" data-view="desktop" aria-pressed="false">Desktop</button>
+        </div>
+        <a class="btn small lime" id="demoNew" href="demo/index.html" target="_blank" rel="noopener">Open demo in new window <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="demo-frame is-mobile" id="demoFrame">
+        <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>Sample New Orleans trip · demo</span></div>
+        <iframe id="demoIframe" src="demo/index.html" title="Spunfor live demo: a sample New Orleans trip app" loading="lazy"></iframe>
+      </div>
+      <p class="fine demo-fine">Sample New Orleans trip, not generated from your answers.</p>
+    </div>
     <div class="tix" aria-label="Sample screens from the app">
       <div class="t t3 reveal"><p class="k"><span>Surprise me</span><span>2 hrs · walking</span></p><h4>Tonight’s route</h4>
         <div class="stop"><i>1</i><div><b>Coffee &amp; beignets</b><br><small>6:00 pm</small></div></div><div class="leg">~6 min walk</div>
