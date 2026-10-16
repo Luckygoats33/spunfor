@@ -46,7 +46,7 @@ em{font-style:normal}
 .nav nav{display:flex;align-items:center;gap:6px}
 .nav nav a:not(.btn){font-family:var(--disp);font-weight:700;font-size:.8rem;letter-spacing:-.02em;text-decoration:none;padding:10px 12px;border-radius:99px}
 .nav nav a:not(.btn):hover{background:var(--lime)}
-@media(max-width:860px){.nav nav a:not(.btn){display:none}.logo img{height:32px}}
+@media(max-width:860px){.nav nav a:not(.btn):not(.saas-tab){display:none}.nav nav a.saas-tab{display:inline-flex;font-size:.85rem;padding:9px 12px;background:var(--lime);border:2px solid var(--ink)}.logo img{height:32px}.nav{gap:8px}}
 
 /* giant disc that turns as you scroll */
 .bigdisc{position:fixed;right:-28vmin;top:12vh;width:92vmin;height:92vmin;pointer-events:none;z-index:0;opacity:.09;transform:rotate(var(--spin,0deg))}

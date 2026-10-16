@@ -35,6 +35,7 @@ with sync_playwright() as p:
         lt=pg.inner_text('main').lower(); ok(f'{W} landing both audiences + pricing', '$29.99' in lt and 'from $299' in lt and 'vacation planners' in lt and 'travelers' in lt and '$9.99' not in lt)
         ok(f'{W} planners section NOT on home', pg.locator('#planners').count()==0 and pg.locator('#talkBtn').count()==0 and 'planning trips for clients' not in lt)
         ok(f'{W} no preview section on home', pg.locator('#result').count()==0 and 'spun together from your answers' not in lt)
+        ok(f'{W} SaaS nav tab visible and inside viewport', pg.evaluate("(()=>{const r=document.querySelector('nav a.saas-tab').getBoundingClientRect();return r.width>20&&r.left>=0&&r.right<=innerWidth})()"))
         ok(f'{W} SaaS nav tab opens new tab', pg.locator('nav a.saas-tab[target=_blank][rel~=noopener]').count()==1 and pg.inner_text('nav a.saas-tab').strip()=='SaaS')
         sp = ctx.new_page(); sp.goto(BASE + 'saas.html'); sp.wait_for_timeout(900); sp.evaluate("document.querySelectorAll('.reveal').forEach(e=>e.classList.add('in'))")
         ok(f'{W} saas page content', 'from $299' in sp.inner_text('main') and 'Planning trips for clients' in sp.inner_text('main') and sp.locator('nav a.saas-tab[target=_blank]').count()==1)
