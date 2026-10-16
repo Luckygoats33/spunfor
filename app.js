@@ -6,7 +6,7 @@ document.documentElement.classList.remove('no-js');
 var CFG=window.SPUNFOR_CONFIG||{};
 var PRICE=(CFG.price||29.99), PRICE_TXT='$'+PRICE.toFixed(2);
 var STEPS=[
- {k:'flight',q:"Hi, I'm Spunfor. Let's spin your trip app together. First: what are your flight details? (Airline, flight number, departure/arrival airports and times, or just \"not booked yet\".)",ph:'e.g. Flight AB123, arrives 3:40pm',quick:['Not booked yet','Driving / train instead']},
+ {k:'flight',q:"Hi, I'm Spunfor. Let's put your trip app together. First: what are your flight details? (Airline, flight number, departure/arrival airports and times, or just \"not booked yet\".)",ph:'e.g. Flight AB123, arrives 3:40pm',quick:['Not booked yet','Driving / train instead']},
  {k:'dates',q:'What are your travel dates?',ph:'e.g. 12 Mar – 19 Mar',quick:[]},
  {k:'dest',q:'Where are you going? City, region or country, anywhere in the world.',ph:'e.g. New Orleans',quick:['New Orleans']},
  {k:'likes',q:'What do you like? Food, jazz, museums, quiet parks, markets, slow mornings… (separate with commas)',ph:'e.g. jazz, coffee, history',quick:[]},
@@ -38,16 +38,18 @@ var CUE={
   dates:/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s*\d{1,2}|\b\d{1,2}\s*(?:st|nd|rd|th)?\s*(?:–|-|to|through|until)\s*\d{1,2}\b|\b\d{1,2}\/\d{1,2}\b/i,
   likes:/\b(love|loves|like|likes|into|enjoy|enjoys|obsessed with|want to see|craving)\b\s*(.*)$/i
 };
-var DEST=/\b(?:going to|trip to|travel(?:l?ing)? to|visiting|heading to|headed to|fly(?:ing)? to|off to)\s+([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*){0,3})/;
+var DEST=/\b(?:going to|trip to|travel(?:l?ing)? to|visiting|heading to|headed to|fly(?:ing)? to|off to)\s+([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*){0,3}(?:,\s*[A-Z]{2}\b)?)/;
+var MON='(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
+var RANGE=new RegExp('\\b'+MON+'\\s*\\d{1,2}(?:\\s*(?:–|-|to|through|until)\\s*(?:'+MON+'\\s*)?\\d{1,2})?|\\b\\d{1,2}\\s*(?:st|nd|rd|th)?\\s*(?:–|-|to|through|until)\\s*\\d{1,2}(?:\\s*'+MON+')?|\\b\\d{1,2}\\/\\d{1,2}(?:\\s*(?:–|-|to)\\s*\\d{1,2}\\/\\d{1,2})?','i');
 function stripLead(c){return c.replace(/^\s*(and|but|also|then|plus)\s+/i,'').trim()}
 function extract(text){
   var out={},clauses=text.split(/[.;!\n]+|,\s*(?=(?:and\s+)?(?:i|we|also|but)\b)/i).map(stripLead).filter(Boolean);
   clauses.forEach(function(c){
     var m,dm=c.match(DEST);if(dm&&!out.dest)out.dest=dm[1].trim();
     if((m=c.match(CUE.dislikes))&&m[2]){out.dislikes=m[2].replace(/^(?:to|going|doing)\s+/i,'').trim();return}
-    if(CUE.needs.test(c)){out.needs=out.needs?out.needs+'; '+c:c;return}
+    if(CUE.needs.test(c)){var nc=cap(c.replace(/^(?:we|i)(?:'ll| will)?\s+(?:also\s+)?(?:need|require)s?\s+/i,'').trim());out.needs=out.needs?out.needs+'; '+nc:nc;return}
     if(CUE.flight.test(c)&&!/\b(love|like|enjoy)\b/i.test(c)){out.flight=c;return}
-    if(CUE.dates.test(c)){out.dates=c.replace(/^(?:we|i)(?:'re| am| are)?\s*(?:travel(?:l?ing)?|going|there|away)?\s*(?:from|on)?\s*/i,'').trim()||c;return}
+    if(CUE.dates.test(c)){var rm=c.match(RANGE);out.dates=rm?rm[0].trim():c;return}
     if((m=c.match(CUE.likes))&&m[2]){out.likes=m[2].trim();return}
   });
   return out;

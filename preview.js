@@ -31,7 +31,7 @@ function previewHtml(d,unlocked){
   var copy='<div class="pv-copy"><p class="k"><b>Your preview</b></p><h3>Your '+esc(dest||'trip')+' app, spun together from your answers.</h3><p class="honest-note" id="honestNote" role="note">'+honestyNote(d)+'</p><p class="sub">'+(unlocked?'Unlocked. Open it and try Holla Holla, Surprise Me, the map, your passport and the theme picker.':'This is a preview. Unlock it to open the full interactive app with a map, open-now filter, Surprise Me itineraries, passport and themes.')+'</p>'+
    '<div class="pv-strip" aria-hidden="true"><span class="on">Home</span><span>Map</span><span>Explore</span><span>Saved</span><span>Help</span></div>'+
    (unlocked?'':'<div class="pv-lockrow" aria-hidden="true"><span>Open now: nearby picks</span><span>Surprise Me</span><span>Passport</span></div>')+
-   '<div class="actions" id="pvActions">'+(unlocked?'<a class="btn big" id="openMy" href="'+esc(CFG.demoPath||'demo/index.html')+'#home">Open my app</a>':'<button class="btn big" type="button" id="unlockBtn">Unlock your app · '+PRICE_TXT+'</button>')+'<a class="btn ghost dk big" id="again" href="index.html#chat">Start over</a></div></div>';
+   '<div class="actions" id="pvActions">'+(unlocked?'<a class="btn big" id="openMy" href="'+esc(CFG.demoPath||'demo/index.html')+'#home" target="_blank" rel="noopener">Open my app</a>':'<button class="btn big" type="button" id="unlockBtn">Unlock your app · '+PRICE_TXT+'</button>')+'<a class="btn ghost dk big" id="again" href="index.html#chat">Start over</a></div></div>';
   return '<div class="pv">'+tk+copy+'</div>';
 }
 function renderPreview(){
@@ -70,7 +70,7 @@ function draw(){
     var u=unlockState||{},cu=u.custom||custom;
     h='<div class="m-top center-t">'+testBanner()+'<div><span class="okmark" aria-hidden="true">Unlocked</span></div><h2 id="mTitle" style="margin-right:0">'+(u.via==='promo'?'You’re in — unlocked free':'Payment successful (test)')+'</h2><p class="sub">Your personalized app is unlocked.</p></div><div class="m-stub">'+
      '<div class="receipt"><div><span>Receipt</span><code>'+esc(u.receipt||'')+'</code></div><div><span>Item</span><span>Personalized trip app (one-time)</span></div><div><span>Colors</span><span>'+esc((SCHEMES.filter(function(s){return s[0]===cu.scheme})[0]||SCHEMES[1])[1])+'</span></div><div><span>Modules</span><span>'+esc((cu.modules||[]).join(', ')||'None selected')+'</span></div><div><span>Paid</span><b>'+(u.via==='promo'?'$0.00 (promo)':PRICE_TXT+' (TEST – not charged)')+'</b></div><div><span>Date</span><span>'+new Date(u.ts||Date.now()).toLocaleString()+'</span></div></div>'+
-     '<a class="btn m-btn" id="openApp" href="'+esc(CFG.demoPath||'demo/index.html')+'#home">Open my app</a><button class="m-sub" type="button" data-close>Stay on this page</button></div>';
+     '<a class="btn m-btn" id="openApp" href="'+esc(CFG.demoPath||'demo/index.html')+'#home" target="_blank" rel="noopener">Open my app</a><button class="m-sub" type="button" data-close>Stay on this page</button></div>';
   }
   modal.innerHTML=h;bind();
 }
