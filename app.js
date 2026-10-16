@@ -7,7 +7,7 @@ var CFG=window.SPUNFOR_CONFIG||{};
 var PRICE=(CFG.price||29.99), PRICE_TXT='$'+PRICE.toFixed(2);
 var MODS=['Ink / tattoos','Nature','Nightlife','History / Time Machine','Celebration','Animals','Food / dietary'];
 var SCHEMES=[['generic','Generic (blue, white, gray)'],['city','City colors'],['custom','Custom colors']];
-var custom={scheme:'city',accent:'#E4572E',modules:['Food / dietary']};
+var custom={scheme:'city',accent:'#E4572E',modules:MODS.slice()};
 var STEPS=[
  {k:'flight',q:"Hi, I'm Spunfor. Let's spin your trip app together. First: what are your flight details? (Airline, flight number, departure/arrival airports and times, or just \"not booked yet\".)",ph:'e.g. Flight AB123, arrives 3:40pm',quick:['Not booked yet','Driving / train instead']},
  {k:'dates',q:'What are your travel dates?',ph:'e.g. 12 Mar – 19 Mar',quick:[]},

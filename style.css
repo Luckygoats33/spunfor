@@ -290,3 +290,21 @@ a.m-btn{text-decoration:none}
 .biz-price b{font-size:clamp(2.2rem,6vw,3.6rem);letter-spacing:-.05em}.biz-price span{font-weight:700;margin-left:6px}.biz-price small{display:block;font-family:var(--mono);font-size:.75rem;margin-top:6px}
 .talk{display:grid;gap:10px}.talk[hidden]{display:none}.talk input,.talk textarea{width:100%;font:inherit;padding:10px 12px;border:2px solid var(--ink);border-radius:12px;background:#fff;color:var(--ink)}
 .talk label{color:var(--ink)}
+
+/* unlock modal: brand radios + checkboxes (custom, bold, AA, 44px targets) */
+.cust .opt{position:relative;display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:6px 14px 6px 10px;border:2px solid var(--ink);border-radius:99px;background:var(--bone);color:var(--ink);font-weight:700;font-size:.92rem;cursor:pointer;transition:background .2s,transform .3s var(--snap)}
+.cust .opt:hover{transform:rotate(-1.5deg)}
+.cust .opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.cust .opt::before{content:"";flex:none;width:22px;height:22px;border:3px solid var(--ink);background:#fff;box-sizing:border-box;transition:background .15s}
+.cust .opt:has(input[type=radio])::before{border-radius:50%}
+.cust .opt:has(input[type=checkbox])::before{border-radius:6px}
+.cust .opt:has(input:checked){background:var(--lime)}
+.cust .opt:has(input:checked)::before{background:var(--ink)}
+.cust .opt:has(input[type=radio]:checked)::before{box-shadow:inset 0 0 0 3px var(--lime)}
+.cust .opt:has(input[type=checkbox]:checked)::before{background:var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5' fill='none' stroke='%23C8F31D' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat}
+.cust .opt:has(input:focus-visible){outline:3px solid var(--tom);outline-offset:3px}
+.cust .opt.colorrow input{position:static;opacity:1;width:44px;height:32px;padding:0;border:2px solid var(--ink);border-radius:8px}
+.cust .opt.colorrow::before{display:none}.cust .opt.colorrow:has(input){background:var(--bone)}
+.cust fieldset{gap:8px}
+@media(max-width:480px){.cust .opt{flex:1 1 100%}}
+@media(prefers-reduced-motion:reduce){.cust .opt,.cust .opt:hover{transition:none;transform:none}}

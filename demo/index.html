@@ -862,6 +862,24 @@ button.holla,.cakebtn,[data-ink]{min-height:44px}
   }
   function apply(){ st.textContent=css(); document.documentElement.setAttribute("data-spun-theme",T.mode); }
   function save(){ try{localStorage.setItem(KEY,JSON.stringify(T));}catch(e){} }
+  /* Modules (spunfor.modules): show/hide matching entry points only. All on when nothing is stored. Venue data is untouched. */
+  (function(){
+    var ALL={"Ink / tattoos":['[data-tab="ink"]','[data-go="ink"]','[data-col="tattoo"]','[data-col="ink"]'],
+      "Nature":['[data-col="nature"]'],
+      "Nightlife":['[data-col="tonight"]','[data-col="jazz"]'],
+      "History / Time Machine":['[data-col="history"]','[data-go="time"]','.plink[data-tm]'],
+      "Celebration":['[data-go="birthday"]','[data-col="birthday"]'],
+      "Animals":['[data-col="cats"]'],
+      "Food / dietary":['[data-col="veg"]']};
+    var sel=null; try{ var m=JSON.parse(localStorage.getItem("spunfor.modules")||"null"); if(Array.isArray(m)) sel=m; }catch(e){}
+    if(!sel) return;
+    var off=Object.keys(ALL).filter(function(k){return sel.indexOf(k)<0;}).reduce(function(a,k){return a.concat(ALL[k]);},[]);
+    if(!off.length) return;
+    var ms=document.createElement("style"); ms.id="spun-modules";
+    ms.textContent=off.map(function(x){return x+'{display:none!important}';}).join("\n");
+    document.head.appendChild(ms);
+    document.documentElement.setAttribute("data-spun-modules",sel.join("|"));
+  })();
   apply();
   window.spunThemeBox=function(){
     var m=[["generic","Generic (blue, white, gray)"],["city","City colors"],["custom","Custom"]];
@@ -5344,5 +5362,6 @@ html body nav.vswitch.vswitch{display:none!important}
 
 </script>
 
+<script>if("serviceWorker" in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(function(){})});</script>
 </body>
 </html>
