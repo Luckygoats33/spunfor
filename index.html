@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spunfor — your trip app, spun together</title>
-<meta name="description" content="Chat for two minutes. Get a personal trip app with an open-now filter, a surprise-me itinerary builder, a walking-radius map, a passport and your own colors.">
+<meta name="description" content="Try a sample New Orleans trip app with an open-now filter, a surprise-me itinerary builder, a walking-radius map, a passport and your own colors.">
 <meta name="theme-color" content="#0D0D0C">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
@@ -19,7 +19,7 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
 <header class="nav" id="nav">
   <a class="logo" href="#top" aria-label="Spunfor home"><img src="logo.svg" alt="Spunfor" width="137" height="36"></a>
   <nav aria-label="Primary">
-    <a href="#features">What spins in</a><a href="#planners">For planners</a><a href="#app">The app</a><a href="#how">How it works</a><a href="demo/index.html">Live demo</a><a class="btn small" href="#chat">Start</a>
+    <a href="#features">What spins in</a><a href="#app">The app</a><a href="#how">How it works</a><a href="demo/index.html">Live demo</a><a class="saas-tab" href="saas.html" target="_blank" rel="noopener">SaaS</a><a class="btn small" href="#chat">Start</a>
   </nav>
 </header>
 
@@ -29,10 +29,11 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
 <section class="hero">
   <div class="wrap hero-grid">
     <div class="hero-copy">
-      <p class="k"><b>01</b> Personal trip apps · any city</p>
+      <p class="k"><b>01</b> Personal trip apps · more cities coming</p>
       <h1><span class="l">Your trip,</span><span class="l"><em class="spunword">spun</em></span><span class="l">together.</span></h1>
-      <p class="lead">For everyday travelers: chat for two minutes and get a trip app that knows what’s open, what you love and what to skip, for $29.99 one-time with your own colors and modules. For vacation planners: white-label client apps from $299/month.</p>
+      <p class="lead">For everyday travelers: chat for two minutes and get a trip app that knows what’s open, what you love and what to skip, for $29.99 one-time with your own colors and modules. For vacation planners: white-label client apps from $299/month (<a href="saas.html" target="_blank" rel="noopener">see SaaS</a>).</p>
       <div class="cta"><a class="btn big" href="#chat">Spin my trip app <span class="arr" aria-hidden="true">→</span></a><a class="btn ghost big" href="demo/index.html">Try the live demo</a></div>
+      <p class="fine honest"><b>What’s real today:</b> the demo is a sample New Orleans trip. It is not generated from your answers. Personalized trips for any city are coming, starting with the top 25 US cities plus Portland, OR.</p>
       <ul class="vows" aria-label="Highlights"><li>$29.99 one-time</li><li>Plans for planners</li><li>No sign-up</li><li>No tracking</li><li>Works on your phone</li></ul>
     </div>
     <div class="hero-art" aria-hidden="true">
@@ -86,7 +87,7 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
         <div class="row"><div><b>Moss Antiques</b><small>Closed · opens 9:30 am</small></div><span class="st">CLOSED</span></div></div>
       <div class="t t2 reveal"><p class="k"><span>Map</span><span>15 min walk</span></p><h4>Within reach</h4><div class="ring" aria-hidden="true"><i></i><i></i><i></i></div><p class="mono" style="margin:6px 0 0;font-size:.85rem">8 places in range · tap to move the start</p></div>
     </div>
-    <div class="tix-note reveal"><a class="btn big lime" href="demo/index.html">Open the interactive demo</a><p class="fine" style="margin:0">The demo is a full New Orleans trip app, so you can try every feature.</p></div>
+    <div class="tix-note reveal"><a class="btn big lime" href="demo/index.html">Open the interactive demo</a><p class="fine" style="margin:0">The demo is a sample New Orleans trip app, not generated from your answers, so you can try every feature.</p></div>
   </div>
 </section>
 
@@ -96,14 +97,14 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
     <ol class="steps">
       <li class="reveal"><span class="num">1</span><h3>Tell us about the trip</h3><p>Flight, dates and where you’re going.</p></li>
       <li class="reveal"><span class="num">2</span><h3>Share your taste</h3><p>What you love, what you’d rather skip, plus budget, group and needs.</p></li>
-      <li class="reveal"><span class="num">3</span><h3>Preview, then unlock</h3><p>See your personalized app first. Unlock it when you like it.</p></li>
+      <li class="reveal"><span class="num">3</span><h3>Preview, then unlock</h3><p>Personalized per-city apps are coming. Today you can preview the sample New Orleans app.</p></li>
     </ol>
   </div>
 </section>
 
 <section class="section chat-sec" id="chat">
   <div class="wrap">
-    <div class="sec-h reveal"><p class="k"><b>05</b> Start spinning</p><h2>Spin your <em>trip app</em></h2><p class="sub">Just write it down, like a travel notebook. Answers stay in your browser.</p></div>
+    <div class="sec-h reveal"><p class="k"><b>05</b> Start spinning</p><h2>Spin your <em>trip app</em></h2><p class="sub">Just write it down, like a travel notebook. Answers stay in your browser. Heads up: today’s demo is a sample New Orleans trip and doesn’t use your answers yet. Personalized per-city generation is coming (top 25 US cities plus Portland, OR).</p></div>
     <div class="bp reveal" role="region" aria-label="Spunfor trip chat">
       <div class="bp-main">
         <div class="bp-head"><strong>Trip notebook</strong><span class="progress" id="progress" aria-live="polite"></span><button type="button" class="link" id="restart">Restart</button></div>
@@ -120,30 +121,10 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
         <div class="dnum"><b id="dialNo">1</b><span>of 8</span></div>
       </aside>
     </div>
-    <p class="fine chat-fine">Spunfor never asks for your email in the chat and uses no analytics or cookies. Answers stay in this browser (localStorage) so your app can use them.</p>
-    <div id="result" class="result" hidden aria-live="polite"></div>
+    <p class="fine chat-fine">Spunfor never asks for your email in the chat and uses no analytics or cookies. Answers stay in this browser (localStorage) so your app can use them. When you finish, your preview opens in a new tab.</p>
   </div>
 </section>
-<section class="section" id="planners">
-  <div class="wrap">
-    <div class="sec-h reveal">
-      <p class="k"><b>For vacation planners</b> Business</p>
-      <h2>Planning trips for <em>clients?</em></h2>
-      <p class="sub">Spunfor Business is for vacation planners and agencies: white-label apps under your brand, a shareable app for each client, and reusable trip templates so every new itinerary starts ahead.</p>
-    </div>
-    <div class="biz reveal">
-      <div class="biz-price"><b>from $299</b><span>/month</span><small>Business plan · TEST MODE: pricing preview only, no billing is set up</small></div>
-      <ul class="perks"><li>White-label: your name, your colors, no Spunfor branding</li><li>Client sharing: send each client their own trip app</li><li>Reusable trip templates for the trips you sell again and again</li></ul>
-      <div class="actions"><a class="btn big" id="talkBtn" href="#talk">Talk to us</a></div>
-      <form class="talk" id="talk" novalidate hidden>
-        <p class="fine"><b>PLACEHOLDER FORM.</b> Nothing is sent or stored. Pressing the button opens your own email app with a prefilled message to the placeholder address below.</p>
-        <div class="fld"><label for="tName">Name / agency</label><input id="tName" type="text" autocomplete="off"></div>
-        <div class="fld"><label for="tMsg">What do you plan?</label><textarea id="tMsg" rows="3"></textarea></div>
-        <a class="btn" id="tMail" href="mailto:business@spunfor.example?subject=Spunfor%20Business%20enquiry">Open email to business@spunfor.example</a>
-      </div>
-    </div>
-  </div>
-</section>
+
 
 </main>
 

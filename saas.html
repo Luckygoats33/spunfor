@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spunfor for planners (SaaS)</title>
+<meta name="description" content="Spunfor Business for vacation planners: white-label client trip apps from $299/month.">
+<meta name="theme-color" content="#0D0D0C">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preload" href="fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script>/* Site config. See README: checkoutUrl is the Stripe hook; promo codes here are DEMO-ONLY. */
+window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,promoCodes:{goat:100},demoPath:'demo/index.html'};</script>
+</head>
+<body>
+<a class="skip" href="#top">Skip to content</a>
+<header class="nav" id="nav">
+  <a class="logo" href="index.html" aria-label="Spunfor home"><img src="logo.svg" alt="Spunfor" width="137" height="36"></a>
+  <nav aria-label="Primary">
+    <a href="index.html#features">What spins in</a><a href="index.html#app">The app</a><a href="index.html#how">How it works</a><a href="demo/index.html">Live demo</a><a class="saas-tab" href="saas.html" target="_blank" rel="noopener">SaaS</a><a class="btn small" href="index.html#chat">Start</a>
+  </nav>
+</header>
+<main id="top">
+<section class="section" id="planners" style="padding-top:140px">
+  <div class="wrap">
+    <div class="sec-h reveal">
+      <p class="k"><b>For vacation planners</b> Business</p>
+      <h2>Planning trips for <em>clients?</em></h2>
+      <p class="sub">Spunfor Business is for vacation planners and agencies: white-label apps under your brand, a shareable app for each client, and reusable trip templates so every new itinerary starts ahead.</p>
+    </div>
+    <div class="biz reveal">
+      <div class="biz-price"><b>from $299</b><span>/month</span><small>Business plan · TEST MODE: pricing preview only, no billing is set up</small></div>
+      <ul class="perks"><li>White-label: your name, your colors, no Spunfor branding</li><li>Client sharing: send each client their own trip app</li><li>Reusable trip templates for the trips you sell again and again</li></ul>
+      <div class="actions"><a class="btn big" id="talkBtn" href="#talk">Talk to us</a></div>
+      <form class="talk" id="talk" novalidate hidden>
+        <p class="fine"><b>PLACEHOLDER FORM.</b> Nothing is sent or stored. Pressing the button opens your own email app with a prefilled message to the placeholder address below.</p>
+        <div class="fld"><label for="tName">Name / agency</label><input id="tName" type="text" autocomplete="off"></div>
+        <div class="fld"><label for="tMsg">What do you plan?</label><textarea id="tMsg" rows="3"></textarea></div>
+        <a class="btn" id="tMail" href="mailto:business@spunfor.example?subject=Spunfor%20Business%20enquiry">Open email to business@spunfor.example</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <img src="logo-light.svg" alt="Spunfor" width="137" height="36">
+    <p>spunfor.me · Demo build. Venue hours, prices and facts in the demo come from a research dataset and can be out of date: always verify with the venue. Price tiers are estimates.</p>
+  </div>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

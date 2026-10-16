@@ -32,16 +32,34 @@ with sync_playwright() as p:
         ok(f'{W} display font is Unbounded', 'unbounded' in pg.evaluate('getComputedStyle(document.querySelector("h1")).fontFamily').lower() and int(pg.evaluate('getComputedStyle(document.querySelector("h1")).fontWeight')) >= 800)
         pg.screenshot(path=f'{OUT}/landing-top-{tag}.png')
         pg.evaluate("document.querySelectorAll('.reveal').forEach(e=>e.classList.add('in'))"); pg.wait_for_timeout(1100)
-        lt=pg.inner_text('main').lower(); ok(f'{W} landing both audiences + pricing', '$29.99' in lt and 'from $299' in lt and 'vacation planners' in lt and 'travelers' in lt and '$9.99' not in lt and pg.locator('#talkBtn').count()==1)
-        pg.click('#talkBtn'); ok(f'{W} talk form placeholder marked', 'PLACEHOLDER' in pg.inner_text('#talk') and 'mailto:' in pg.get_attribute('#tMail','href'))
+        lt=pg.inner_text('main').lower(); ok(f'{W} landing both audiences + pricing', '$29.99' in lt and 'from $299' in lt and 'vacation planners' in lt and 'travelers' in lt and '$9.99' not in lt)
+        ok(f'{W} planners section NOT on home', pg.locator('#planners').count()==0 and pg.locator('#talkBtn').count()==0 and 'planning trips for clients' not in lt)
+        ok(f'{W} no preview section on home', pg.locator('#result').count()==0 and 'spun together from your answers' not in lt)
+        ok(f'{W} SaaS nav tab opens new tab', pg.locator('nav a.saas-tab[target=_blank][rel~=noopener]').count()==1 and pg.inner_text('nav a.saas-tab').strip()=='SaaS')
+        sp = ctx.new_page(); sp.goto(BASE + 'saas.html'); sp.wait_for_timeout(900); sp.evaluate("document.querySelectorAll('.reveal').forEach(e=>e.classList.add('in'))")
+        ok(f'{W} saas page content', 'from $299' in sp.inner_text('main') and 'Planning trips for clients' in sp.inner_text('main') and sp.locator('nav a.saas-tab[target=_blank]').count()==1)
+        sp.click('#talkBtn'); ok(f'{W} talk form placeholder marked', 'PLACEHOLDER' in sp.inner_text('#talk') and 'mailto:' in sp.get_attribute('#tMail','href'))
+        sp.close()
         pg.screenshot(path=f'{OUT}/landing-full-{tag}.png', full_page=True)
         ok(f'{W} landing contrast', not (c := pg.evaluate(CONTRAST)), str(c))
         for a in ANS:
             pg.wait_for_selector('#input:not([disabled])', timeout=8000); pg.fill('#input', a); pg.press('#input', 'Enter'); pg.wait_for_timeout(450)
-        pg.wait_for_selector('#unlockBtn', timeout=15000)
+        pg.wait_for_function("document.getElementById('dialNo').textContent.trim()=='✓'", timeout=15000)
         ok(f'{W} dial completes', pg.inner_text('#dialNo').strip() == '✓')
         pg.locator('#chat').scroll_into_view_if_needed(); pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/chat-{tag}.png')
-        pg.evaluate("document.querySelector('.result').scrollIntoView()"); pg.wait_for_timeout(800); pg.screenshot(path=f'{OUT}/preview-{tag}.png')
+        home = pg
+        pg = pgs[-1] if (pgs := [x for x in ctx.pages if 'preview.html' in x.url]) else None
+        for _ in range(30):
+            if pg: break
+            pg = next((x for x in ctx.pages if 'preview.html' in x.url), None); home.wait_for_timeout(200)
+        ok(f'{W} intake opens preview in NEW tab', pg is not None and pg is not home and 'index.html' in home.url, str([x.url for x in ctx.pages]))
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.wait_for_selector('#unlockBtn', timeout=15000)
+        pt = pg.inner_text('#result')
+        ok(f'{W} preview fields separate (no copying)', 'Delta 1234 MSY' in pt and 'vegetarian options' in pt and pg.evaluate("[...document.querySelectorAll('.spec dd')].map(e=>e.textContent).filter((v,i,a)=>a.indexOf(v)!=i).length")==0)
+        ok(f'{W} sample trip note for New Orleans', 'sample new orleans trip' in pg.inner_text('#honestNote').lower())
+        ok(f'{W} no None given / Not specified', not re.search('none given|not specified', pt, re.I))
+        pg.screenshot(path=f'{OUT}/preview-{tag}.png')
         pg.wait_for_timeout(1700)
         if pg.locator('#modalWrap.on').count()==0: pg.click('#unlockBtn')
         pg.wait_for_selector('#modal'); pg.wait_for_timeout(900); pg.screenshot(path=f'{OUT}/modal-{tag}.png')
@@ -62,7 +80,11 @@ with sync_playwright() as p:
         p2.goto(BASE + 'index.html'); p2.wait_for_timeout(900)
         for a in ANS:
             p2.wait_for_selector('#input:not([disabled])'); p2.fill('#input', a); p2.press('#input', 'Enter'); p2.wait_for_timeout(550)
-        p2.wait_for_selector('#unlockBtn'); p2.wait_for_timeout(1900); p2.wait_for_selector('#promo'); p2.fill('#promo', 'GOAT'); p2.click('#applyPromo'); p2.wait_for_selector('#freeBtn'); ok(f'{W} goat promo makes it free', '$0.00' in p2.inner_text('#modal'))
+        for _ in range(30):
+            q2 = next((x for x in c2.pages if 'preview.html' in x.url), None)
+            if q2: break
+            p2.wait_for_timeout(200)
+        p2 = q2; p2.wait_for_selector('#unlockBtn'); p2.wait_for_timeout(1900); p2.wait_for_selector('#promo'); p2.fill('#promo', 'GOAT'); p2.click('#applyPromo'); p2.wait_for_selector('#freeBtn'); ok(f'{W} goat promo makes it free', '$0.00' in p2.inner_text('#modal'))
         p2.click('#freeBtn'); p2.wait_for_selector('#openApp', timeout=8000); ok(f'{W} goat goes straight to success (no payment screen)', p2.locator('#cn').count() == 0)
         c2.close()
         ok(f'{W} landing/chat/modal errors', not errs, str(errs))
@@ -111,6 +133,28 @@ with sync_playwright() as p:
         # first-run tour
         pg3 = ctx.new_page(); pg3.add_init_script("localStorage.clear()"); pg3.goto(BASE + 'demo/index.html'); pg3.wait_for_timeout(1800)
         ok(f'{W} first-run quick tour auto-starts', pg3.locator('#tour').count() == 1)
+        ctx.close()
+    # Portland intake, long single sentence, popup blocked fallback, empty optional fields
+    for blocked in (False, True):
+        ctx = b.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page()
+        if blocked: pg.add_init_script("window.open=function(){return null}")
+        pg.goto(BASE + 'index.html'); pg.wait_for_timeout(900)
+        for a in ['We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.', 'Skip', 'Skip']:
+            pg.wait_for_selector('#input:not([disabled])'); pg.fill('#input', a); pg.press('#input', 'Enter'); pg.wait_for_timeout(700)
+        pv = None
+        for _ in range(40):
+            pv = next((x for x in ctx.pages if 'preview.html' in x.url), None)
+            if pv: break
+            pg.wait_for_timeout(200)
+        tagp = 'blocked' if blocked else 'popup'
+        ok(f'portland {tagp}: preview opened ' + ('same tab (popup blocked fallback)' if blocked else 'in new tab'), pv is not None and ((pv is pg) if blocked else (pv is not pg)))
+        pv.wait_for_selector('#unlockBtn'); pt = pv.inner_text('#result'); dd = pv.evaluate("Object.fromEntries([...document.querySelectorAll('.spec dl > div')].map(d=>[d.querySelector('dt').textContent,d.querySelector('dd').textContent]))")
+        ok(f'portland {tagp}: fields separated', dd.get('Flight','').lower().startswith('we fly alaska') and 'vegetarian' in dd.get('Needs','').lower() and 'vegetarian' not in dd.get('Flight','').lower() and 'coffee' in dd.get('Likes','').lower() and 'coffee' not in dd.get('Flight','')+dd.get('Needs','') and 'crowds' in dd.get('Avoid','') and 'crowds' not in dd.get('Likes',''), str(dd))
+        ok(f'portland {tagp}: honesty note', 'Portland, OR is coming; this sample is New Orleans' in pv.inner_text('#honestNote') or 'Portland' in pv.inner_text('#honestNote') and 'sample is New Orleans' in pv.inner_text('#honestNote'), pv.inner_text('#honestNote'))
+        ok(f'portland {tagp}: empty fields omitted', not re.search('none given|not specified|Budget|Group', pt))
+        pv.screenshot(path=f'{OUT}/preview-portland-{tagp}.png')
+        pv.wait_for_timeout(1700); pv.fill('#promo','goat'); pv.click('#applyPromo'); pv.click('#freeBtn'); pv.wait_for_selector('#openApp', timeout=8000)
+        ok(f'portland {tagp}: modules/theme saved for demo', pv.evaluate('!!localStorage.getItem("spunfor.modules")&&!!localStorage.getItem("spunfor.theme")'))
         ctx.close()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce'); pg = ctx.new_page(); pg.goto(BASE + 'index.html'); pg.wait_for_timeout(600)
     ok('reduced motion: animations off', pg.evaluate('getComputedStyle(document.querySelector(".badge-ring")).animationName')=='none' and pg.evaluate('getComputedStyle(document.querySelector(".reveal")).opacity')=='1')
