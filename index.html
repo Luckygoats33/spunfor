@@ -123,6 +123,7 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
       <div class="bp-main">
         <div class="bp-head"><strong>Trip notebook</strong><span class="progress" id="progress" aria-live="polite"></span><button type="button" class="link" id="restart">Restart</button></div>
         <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <div class="chips" id="chips" hidden aria-label="Your answers so far"></div>
         <div class="quick" id="quick"></div>
         <form class="composer" id="form" autocomplete="off">
           <label class="sr" for="input">Your answer</label>
@@ -154,6 +155,7 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
   <div class="scrim" data-close></div>
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" tabindex="-1"></div>
 </div>
+<script src="parse.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -6,16 +6,19 @@ document.documentElement.classList.remove('no-js');
 var CFG=window.SPUNFOR_CONFIG||{};
 var PRICE=(CFG.price||29.99), PRICE_TXT='$'+PRICE.toFixed(2);
 var STEPS=[
- {k:'flight',q:"Hi, I'm Spunfor. Let's put your trip app together. First: what are your flight details? (Airline, flight number, departure/arrival airports and times, or just \"not booked yet\".)",ph:'e.g. Flight AB123, arrives 3:40pm',quick:['Not booked yet','Driving / train instead']},
- {k:'dates',q:'What are your travel dates?',ph:'e.g. 12 Mar – 19 Mar',quick:[]},
- {k:'dest',q:'Where are you going? City, region or country, anywhere in the world.',ph:'e.g. New Orleans',quick:['New Orleans']},
- {k:'likes',q:'What do you like? Food, jazz, museums, quiet parks, markets, slow mornings… (separate with commas)',ph:'e.g. jazz, coffee, history',quick:[]},
- {k:'dislikes',q:'And what do you dislike or want to avoid? (crowds, early starts, tourist traps, loud bars…)',ph:'e.g. crowds, early mornings',quick:['Nothing in particular'],},
+ {k:'flight',q:"Hi, I'm Spunfor. Let's put your trip app together. Tell me about the trip in a sentence or two (where, when, your flight if you have one), or just share your flight details. I'll only ask about what's missing.",ph:'e.g. leaving Friday to Portland, back Sunday',quick:['Not booked yet','Driving / train instead']},
+ {k:'dates',q:'What are your travel dates?',ph:'e.g. 12 Mar – 19 Mar, or next weekend',quick:['Not sure yet']},
+ {k:'dest',q:'Where are you going? City, region or country, anywhere in the world.',ph:'e.g. Portland, OR',quick:[]},
+ {k:'likes',q:'What do you like? Food, jazz, museums, quiet parks, markets, slow mornings… (separate with commas)',ph:'e.g. jazz, coffee, history',quick:['Skip']},
+ {k:'dislikes',q:'And what do you dislike or want to avoid? (crowds, early starts, tourist traps, loud bars…)',ph:'e.g. crowds, early mornings',quick:['Nothing in particular']},
  {k:'budget',q:'Optional: budget? Type "skip" to pass.',ph:'e.g. mid-range, or $150/day',quick:['Skip','Budget-friendly','Mid-range','Splurge'],opt:true},
  {k:'group',q:"Optional: who's traveling?",ph:'e.g. 2 adults',quick:['Skip','Solo','Couple','Family','Friends'],opt:true},
  {k:'needs',q:'Optional: any dietary, health, accessibility or other needs we should plan around?',ph:'e.g. vegetarian, step-free access',quick:['Skip','None'],opt:true}
 ];
-var data,idx,busy;
+var LABEL={flight:'Flight',dates:'Dates',dest:'Going to',likes:'Likes',dislikes:'Avoid',budget:'Budget',group:'Group',needs:'Needs'};
+var CHIP_ORDER=['dest','dates','flight','likes','dislikes','budget','group','needs'];
+var P=window.SpunforParse||{parseTrip:function(){return {}},answer:function(k,v){return v},IDK:/^$/};
+var data,idx,busy,editKey=null,destAsked=0,finished=false;
 var $=function(id){return document.getElementById(id)};
 var log=$('log'),form=$('form'),input=$('input'),quick=$('quick'),prog=$('progress'),ring=$('ringFill'),dialNo=$('dialNo');
 function setRing(f,label){ring.style.strokeDashoffset=String(100-f*100);dialNo.textContent=label}
@@ -30,48 +33,66 @@ function ask(){
   setTimeout(function(){t.classList.remove('typing');t.textContent=s.q;busy=false;input.placeholder=s.ph;renderQuick(s);input.focus({preventScroll:true});log.scrollTop=log.scrollHeight},350);
 }
 function renderQuick(s){quick.innerHTML='';(s.quick||[]).forEach(function(q){var b=document.createElement('button');b.type='button';b.textContent=q;b.onclick=function(){submit(q)};quick.appendChild(b)})}
-/* ---------- intake: each question keeps only its own answer ---------- */
-var CUE={
-  dislikes:/\b(avoid|hate|dislike|don'?t like|do not like|can'?t stand|skip|sick of)\b\s*(.*)$/i,
-  needs:/\b(vegetarian|vegan|gluten|allerg\w*|wheelchair|accessib\w*|step-free|mobility|dietary|kosher|halal|need[s]?)\b/i,
-  flight:/\b[A-Z]{2}\s?\d{2,4}\b|\b(flight|airline|airport|lands?|landing|arrives?|arriving|departs?|departing|not booked)\b/i,
-  dates:/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s*\d{1,2}|\b\d{1,2}\s*(?:st|nd|rd|th)?\s*(?:–|-|to|through|until)\s*\d{1,2}\b|\b\d{1,2}\/\d{1,2}\b/i,
-  likes:/\b(love|loves|like|likes|into|enjoy|enjoys|obsessed with|want to see|craving)\b\s*(.*)$/i
-};
-var DEST=/\b(?:going to|trip to|travel(?:l?ing)? to|visiting|heading to|headed to|fly(?:ing)? to|off to)\s+([A-Z][\w'’.-]*(?:\s+[A-Z][\w'’.-]*){0,3}(?:,\s*[A-Z]{2}\b)?)/;
-var MON='(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?';
-var RANGE=new RegExp('\\b'+MON+'\\s*\\d{1,2}(?:\\s*(?:–|-|to|through|until)\\s*(?:'+MON+'\\s*)?\\d{1,2})?|\\b\\d{1,2}\\s*(?:st|nd|rd|th)?\\s*(?:–|-|to|through|until)\\s*\\d{1,2}(?:\\s*'+MON+')?|\\b\\d{1,2}\\/\\d{1,2}(?:\\s*(?:–|-|to)\\s*\\d{1,2}\\/\\d{1,2})?','i');
-function stripLead(c){return c.replace(/^\s*(and|but|also|then|plus)\s+/i,'').trim()}
-function extract(text){
-  var out={},clauses=text.split(/[.;!\n]+|,\s*(?=(?:and\s+)?(?:i|we|also|but)\b)/i).map(stripLead).filter(Boolean);
-  clauses.forEach(function(c){
-    var m,dm=c.match(DEST);if(dm&&!out.dest)out.dest=dm[1].trim();
-    if((m=c.match(CUE.dislikes))&&m[2]){out.dislikes=m[2].replace(/^(?:to|going|doing)\s+/i,'').trim();return}
-    if(CUE.needs.test(c)){var nc=cap(c.replace(/^(?:we|i)(?:'ll| will)?\s+(?:also\s+)?(?:need|require)s?\s+/i,'').trim());out.needs=out.needs?out.needs+'; '+nc:nc;return}
-    if(CUE.flight.test(c)&&!/\b(love|like|enjoy)\b/i.test(c)){out.flight=c;return}
-    if(CUE.dates.test(c)){var rm=c.match(RANGE);out.dates=rm?rm[0].trim():c;return}
-    if((m=c.match(CUE.likes))&&m[2]){out.likes=m[2].trim();return}
-  });
-  return out;
+/* ---------- intake: parse the first answer, pre-fill every field found, only ask what is missing ---------- */
+var chipsEl=$('chips');
+function has(k){return Object.prototype.hasOwnProperty.call(data,k)}
+function nextIdx(from){while(from<STEPS.length&&has(STEPS[from].k))from++;return from}
+function shortV(v){v=String(v);return v.length>42?v.slice(0,40)+'…':v}
+function renderChips(){
+  if(!chipsEl)return;chipsEl.innerHTML='';
+  var ks=CHIP_ORDER.filter(function(k){return data[k]});
+  chipsEl.hidden=!ks.length;if(!ks.length)return;
+  var l=document.createElement('span');l.className='chips-l';l.textContent='Your answers · tap to edit';chipsEl.appendChild(l);
+  ks.forEach(function(k){var b=document.createElement('button');b.type='button';b.className='chip';b.dataset.k=k;b.setAttribute('aria-label','Edit '+LABEL[k]+': '+data[k]);b.innerHTML='<b>'+esc(LABEL[k])+'</b> '+esc(shortV(data[k]));b.onclick=function(){editField(k)};chipsEl.appendChild(b)});
 }
-function nextIdx(from){while(from<STEPS.length&&Object.prototype.hasOwnProperty.call(data,STEPS[from].k))from++;return from}
-function submit(val){
-  if(busy)return;val=(val||'').trim();if(!val)return;if(val.length>600)val=val.slice(0,600);
-  add(val,'user');input.value='';resize();quick.innerHTML='';
-  var s=STEPS[idx],skip=/^(skip|none|no|n\/a)$/i.test(val);
-  var ex=(idx===0&&val.length>50)?extract(val):null,keys=ex?Object.keys(ex):[];
-  if(keys.length>=2){
-    /* One long sentence answered several questions: split it, each field gets only its own part. */
-    data.flight=ex.flight||'';
-    ['dates','dest','likes','dislikes','needs'].forEach(function(k){if(ex[k])data[k]=ex[k]});
-    add('Got it, I picked up: '+keys.map(function(k){return {flight:'flight',dates:'dates',dest:'destination',likes:'likes',dislikes:'things to skip',needs:'needs'}[k]}).join(', ')+'. A few more questions.','bot');
-  }else{
-    data[s.k]=(s.opt&&skip)?'':val;
-    if(s.k==='dislikes'&&/^nothing in particular$/i.test(val))data[s.k]='';
-    if(s.k==='flight'&&/^(not booked yet|driving \/ train instead)$/i.test(val))data[s.k]=val;
+function editField(k){
+  if(busy)return;editKey=k;
+  add('Edit '+LABEL[k].toLowerCase()+':','bot');
+  quick.innerHTML='';var rm=document.createElement('button');rm.type='button';rm.textContent='Remove';rm.onclick=function(){submit('',true)};quick.appendChild(rm);
+  input.value=data[k]||'';input.placeholder='Type the new '+LABEL[k].toLowerCase();resize();input.focus({preventScroll:true});input.select&&input.select();
+}
+function summary(ex){return CHIP_ORDER.filter(function(k){return ex[k]&&k!=='flight'}).map(function(k){return ex[k]}).join(' · ')}
+function submit(val,remove){
+  if(busy)return;val=(val||'').trim();if(!val&&!remove)return;if(val.length>600)val=val.slice(0,600);
+  if(val)add(val,'user');input.value='';resize();quick.innerHTML='';
+  if(editKey){
+    var ek=editKey;editKey=null;var nv=remove?'':(ek==='flight'?val:P.answer(ek,val)||(ek==='dest'||ek==='dates'?'':val));
+    if(nv)data[ek]=nv;else data[ek]='';
+    renderChips();add(nv?'Updated '+LABEL[ek].toLowerCase()+'.':'Removed '+LABEL[ek].toLowerCase()+'.','bot');
+    if(finished){ls('trip',clean(data));quick.innerHTML='<a class="btn small" id="pvLink" href="preview.html" target="_blank" rel="noopener">Open my preview</a>'}
+    else{var s2=STEPS[idx];if(s2){input.placeholder=s2.ph;renderQuick(s2)}}
+    return;
   }
+  var s=STEPS[idx];
+  if(idx<=1){
+    /* First (or second) free-text answer: pull everything out of it. Fields that matched nothing stay empty and get asked. */
+    var ex=P.parseTrip(val),keys=Object.keys(ex),other=keys.filter(function(k){return k!=='flight'});
+    if(P.IDK.test(val)){data[s.k]='';if(s.k==='flight'&&idx===0)data.flight=''}
+    else if(idx===0&&!keys.length)data.flight=val;           /* e.g. "Driving / train instead": it is the flight answer */
+    else if(idx===1&&!ex.dates&&!other.length)data.dates=P.answer('dates',val);
+    else{
+      if(idx===0)data.flight=ex.flight||'';
+      if(idx===1&&!has('dates'))data.dates=ex.dates||'';
+      other.forEach(function(k){if(!has(k)||!data[k])data[k]=ex[k]});
+      if(other.filter(function(k){return !(idx===1&&k==='dates')}).length){
+        add('Got it: '+summary(ex)+'. Tap a chip below to fix anything.','bot')}
+    }
+  }else if(s.k==='dest'){
+    var dv=P.answer('dest',val);
+    if(!dv&&destAsked<1){destAsked++;renderChips();return askAgain('I need a place to build your preview. Which city or region?',s)}
+    data.dest=dv;
+  }else{
+    var skip=P.IDK.test(val),own=val,extra='';
+    if(!skip&&(s.k==='likes'||s.k==='dislikes')){ /* a late answer can also carry a need, budget or group: keep it out of this field */
+      var cut=val.search(/,?\s+(?:and\s+)?(?:i am|i'm|we are|we're|i|we)\s/i);
+      if(cut>0){own=val.slice(0,cut).trim();extra=val.slice(cut)}}
+    data[s.k]=skip?'':(s.k==='dates'?P.answer('dates',own):own);
+    if(!skip&&idx>=3){var e2=P.parseTrip(extra||val);['needs','budget','group'].forEach(function(k){if(k!==s.k&&e2[k]&&!has(k))data[k]=e2[k]})}
+  }
+  renderChips();
   idx=nextIdx(idx+1);if(idx<STEPS.length)ask();else finish();
 }
+function askAgain(q,s){busy=true;var t=add('…','bot typing');setTimeout(function(){t.classList.remove('typing');t.textContent=q;busy=false;input.placeholder=s.ph;renderQuick(s);input.focus({preventScroll:true});log.scrollTop=log.scrollHeight},300)}
 function list(s){return (s||'').split(/[,;\n]| and |&/i).map(function(x){return x.trim()}).filter(Boolean).slice(0,10)}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 
@@ -79,7 +100,7 @@ function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function clean(d){var o={};Object.keys(d).forEach(function(k){var v=String(d[k]==null?'':d[k]).trim();if(v)o[k]=v});return o}
 function finish(){
   prog.textContent='Spun';setRing(1,'✓');
-  data=clean(data);ls('trip',data);try{sessionStorage.setItem('spunfor.trip',JSON.stringify(data))}catch(e){}
+  finished=true;data=clean(data);ls('trip',data);renderChips();try{sessionStorage.setItem('spunfor.trip',JSON.stringify(data))}catch(e){}
   var url='preview.html',w=null;
   try{w=window.open(url,'_blank')}catch(e){w=null}
   if(w&&!w.closed){try{w.opener=null}catch(e){}
@@ -90,7 +111,7 @@ function finish(){
     setTimeout(function(){location.href=url},350);
   }
 }
-function restart(){data={};idx=0;busy=false;log.innerHTML='';quick.innerHTML='';ls('trip',null);ask();$('chat').scrollIntoView({behavior:'smooth'})}
+function restart(){data={};idx=0;busy=false;editKey=null;destAsked=0;finished=false;renderChips();log.innerHTML='';quick.innerHTML='';ls('trip',null);ask();$('chat').scrollIntoView({behavior:'smooth'})}
 
 /* ---------- misc ---------- */
 function resize(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,140)+'px'}

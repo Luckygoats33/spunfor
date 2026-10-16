@@ -181,6 +181,52 @@ with sync_playwright() as p:
         pv.wait_for_timeout(1700); pv.fill('#promo','goat'); pv.click('#applyPromo'); pv.click('#freeBtn'); pv.wait_for_selector('#openApp', timeout=8000)
         ok(f'portland {tagp}: modules/theme saved for demo', pv.evaluate('!!localStorage.getItem("spunfor.modules")&&!!localStorage.getItem("spunfor.theme")'))
         ctx.close()
+    # ---- intake: parse first answer, pre-fill, never re-ask, chips to edit ----
+    def drive(answers, extra_skip=True):
+        c = b.new_context(viewport={'width': 390, 'height': 844}); q = c.new_page(); q.add_init_script("window.open=function(){return {closed:false}}")
+        q.goto(BASE + 'index.html'); q.wait_for_timeout(700); phs = []
+        for a in answers:
+            q.wait_for_selector('#input:not([disabled])'); phs.append(q.get_attribute('#input', 'placeholder') or ''); q.fill('#input', a); q.press('#input', 'Enter'); q.wait_for_timeout(750)
+        asked = []; n = 0
+        while extra_skip and q.evaluate("document.getElementById('dialNo').textContent.trim()") != '✓' and n < 9:
+            q.wait_for_selector('#input:not([disabled])'); asked.append(q.evaluate("[...document.querySelectorAll('#log .msg.bot')].pop().textContent")); phs.append(q.get_attribute('#input', 'placeholder') or '')
+            q.fill('#input', 'skip'); q.press('#input', 'Enter'); q.wait_for_timeout(700); n += 1
+        import json as _j
+        trip = _j.loads(q.evaluate("localStorage.getItem('spunfor.trip')") or '{}')
+        return c, q, trip, asked, phs
+    c, q, trip, asked, phs = drive(['leaving friday to portland til sunday'])
+    bots = q.evaluate("[...document.querySelectorAll('#log .msg.bot')].map(e=>e.textContent)"); users = q.evaluate("[...document.querySelectorAll('#log .msg.user')].map(e=>e.textContent)")
+    ok('intake "leaving friday to portland til sunday": dest Portland, dates Fri to Sun, nothing copied', trip.get('dest') == 'Portland' and trip.get('dates') == 'Fri to Sun' and 'flight' not in trip and 'likes' not in trip, str(trip))
+    ok('intake: dates/destination/flight never re-asked', not any(re.search('travel dates|Where are you going|flight details', x) for x in asked) and len(users) == 1 + len(asked), str(asked))
+    ok('intake: no question repeated', len(set(bots)) == len(bots), str(bots))
+    ok('intake: placeholders never show New Orleans as an answer', not any('new orleans' in x.lower() for x in phs), str(phs))
+    ok('intake: raw sentence only appears as the user bubble', sum(1 for x in bots if 'leaving friday' in x.lower()) == 0)
+    ok('intake: confirmation chips shown (Portland, Fri to Sun)', 'Portland' in q.inner_text('#chips') and 'Fri to Sun' in q.inner_text('#chips'))
+    q.evaluate("document.getElementById('chat').scrollIntoView()"); q.wait_for_timeout(300); q.screenshot(path=f'{OUT}/intake-chips-390.png')
+    c.close()
+    c, q, trip, asked, phs = drive(['We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.'])
+    ok('intake long sentence: every field only its own part, only budget+group asked', trip.get('flight', '').startswith('We fly Alaska') and trip.get('dest') == 'Portland, OR' and trip.get('dates') == 'Oct 3 to Oct 7' and trip.get('likes') == 'coffee, bookstores and food carts' and trip.get('dislikes') == 'crowds and early mornings' and trip.get('needs') == 'Vegetarian options' and len(asked) == 2 and 'budget' in asked[0].lower() and 'traveling' in asked[1].lower(), str(trip) + str(asked))
+    c.close()
+    c, q, trip, asked, phs = drive(['pdx next weekend'])
+    ok('intake "pdx next weekend": Portland, OR + Next weekend', trip.get('dest') == 'Portland, OR' and trip.get('dates') == 'Next weekend' and not any('travel dates' in x or 'Where are you going' in x for x in asked), str(trip))
+    c.close()
+    c, q, trip, asked, phs = drive(['idk'], extra_skip=False)
+    nxt = q.evaluate("[...document.querySelectorAll('#log .msg.bot')].pop().textContent")
+    ok('intake "idk": nothing captured, flight not re-asked, dates asked next', trip == {} and 'travel dates' in nxt and q.locator('#chips .chip').count() == 0, nxt)
+    n0 = q.locator('#log .msg').count(); q.fill('#input', '   '); q.press('#input', 'Enter'); q.wait_for_timeout(400)
+    ok('intake empty input ignored', q.locator('#log .msg').count() == n0)
+    c.close()
+    c, q, trip, asked, phs = drive(['leaving friday to portland til sunday'], extra_skip=False)
+    q.click('#chips .chip[data-k=dest]'); q.wait_for_selector('#input:not([disabled])'); ok('intake chip edit prefills the field', q.input_value('#input') == 'Portland')
+    q.fill('#input', 'seattle'); q.press('#input', 'Enter'); q.wait_for_timeout(500)
+    ok('intake chip edit updates destination', 'Seattle' in q.inner_text('#chips') and 'Portland' not in q.inner_text('#chips'))
+    c.close()
+    c, q, trip, asked, phs = drive(['lving fri 2 portland thru sun w/ my wife'])
+    ok('intake typos/lowercase ("lving fri 2 portland thru sun w/ my wife")', trip.get('dest') == 'Portland' and trip.get('dates') == 'Fri to Sun' and 'wife' in trip.get('group', ''), str(trip))
+    c.close()
+    c, q, trip, asked, phs = drive(['not booked yet', 'Oct 3-7', 'Portland, OR', 'coffee, I am vegetarian and travelling with my wife', 'crowds'])
+    ok('intake later answer carrying a need/group keeps likes clean', trip.get('likes') == 'coffee' and trip.get('needs') == 'Vegetarian' and 'wife' in trip.get('group', '') and trip.get('dislikes') == 'crowds', str(trip))
+    c.close()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce'); pg = ctx.new_page(); pg.goto(BASE + 'index.html'); pg.wait_for_timeout(600)
     ok('reduced motion: animations off', pg.evaluate('getComputedStyle(document.querySelector(".badge-ring")).animationName')=='none' and pg.evaluate('getComputedStyle(document.querySelector(".reveal")).opacity')=='1')
     b.close()

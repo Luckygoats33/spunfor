@@ -337,3 +337,10 @@ a.m-btn{text-decoration:none}
 .demo-frame.is-desktop iframe{height:min(760px,80vh);min-height:520px}
 .demo-fine{text-align:center;margin:16px 0 0}
 @media(max-width:600px){.demo-bar{justify-content:center}.demo-frame.is-mobile{max-width:100%;border-radius:34px;padding:10px}}
+
+/* intake answer chips */
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 0}
+.chips-l{font:600 .72rem var(--mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--mute-d);width:100%}
+.chip{background:var(--lime);color:var(--ink);border:2px solid var(--ink);border-radius:99px;padding:7px 14px;font:600 .88rem var(--body);cursor:pointer;min-height:40px;text-align:left}
+.chip b{font-family:var(--disp);font-weight:800;font-size:.72rem;letter-spacing:-.01em;text-transform:uppercase;margin-right:4px}
+.chip:hover,.chip:focus-visible{background:var(--bone);outline:3px solid var(--tom);outline-offset:2px}
