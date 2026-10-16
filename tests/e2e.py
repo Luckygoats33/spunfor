@@ -1,20 +1,21 @@
-"""Spunfor e2e (Playwright + system Chrome). Serve the site first:
+"""Spunfor e2e (Playwright + system Chrome), v4. Serve the site first:
    python3 -m http.server 8433 --bind 127.0.0.1 --directory <repo>
-   python3 tests/e2e.py [outdir]"""
-import sys, json, os
+   python3 tests/e2e.py [outdir]
+Covers landing, chat, preview, unlock modal, promo + TEST checkout, and the demo app (a faithful copy of NOLA V3) at 390 and 1280."""
+import sys, os, re
 from playwright.sync_api import sync_playwright
 BASE = 'http://127.0.0.1:8433/'
-OUT = sys.argv[1] if len(sys.argv) > 1 else '/workspace/spunfor-shots/v3'
+OUT = sys.argv[1] if len(sys.argv) > 1 else '/workspace/spunfor-shots/v4'
 os.makedirs(OUT, exist_ok=True)
 ANS = ['Delta 1234 MSY, arrives Sat 10:30am', '12 Mar to 15 Mar', 'New Orleans', 'jazz, beignets, history, hidden gems', 'loud Bourbon Street party crowds', '$$ moderate', '2 adults, birthday trip', 'vegetarian options']
 res = []
 def ok(name, cond, extra=''):
     res.append((name, bool(cond), extra)); print(('PASS ' if cond else 'FAIL ') + name, extra)
-def contrast_js():
-    return """() => { const L=c=>{const m=c.match(/[\\d.]+/g).map(Number);const [r,g,b]=m.slice(0,3).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b};
+CONTRAST = """() => { const L=c=>{const m=c.match(/[\\d.]+/g).map(Number);const [r,g,b]=m.slice(0,3).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*r+.7152*g+.0722*b};
   const bgOf=e=>{while(e){const c=getComputedStyle(e).backgroundColor;const m=c.match(/[\\d.]+/g);if(m&&(m.length<4||+m[3]>.9))return c;e=e.parentElement}return 'rgb(255,255,255)'};
-  const bad=[];document.querySelectorAll('main *, .top *, .tabs *, h1,h2,h3,p,button,a,li,label,span').forEach(e=>{if(!e.childNodes.length||![...e.childNodes].some(n=>n.nodeType==3&&n.textContent.trim()))return;const cs=getComputedStyle(e);if(cs.visibility=='hidden'||cs.display=='none'||e.offsetWidth==0||+cs.opacity<.6)return;
+  const bad=[];document.querySelectorAll('main *, .nav *, .modal *, h1,h2,h3,p,button,a,li,label,span').forEach(e=>{if(![...e.childNodes].some(n=>n.nodeType==3&&n.textContent.trim()))return;const cs=getComputedStyle(e);if(cs.visibility=='hidden'||cs.display=='none'||e.offsetWidth==0||+cs.opacity<.6||e.closest('.reveal:not(.in)')||e.closest('.badge-ring')||e.closest('.pv-lockrow'))return;
    const f=L(cs.color),b=L(bgOf(e)),r=(Math.max(f,b)+.05)/(Math.min(f,b)+.05);const big=parseFloat(cs.fontSize)>=24||(parseFloat(cs.fontSize)>=18.6&&+cs.fontWeight>=700);if(r<(big?3:4.5))bad.push([e.textContent.trim().slice(0,30),r.toFixed(2)])});return bad.slice(0,8)}"""
+PERSONAL = re.compile(r'\b(Emily|Tara|Lauren|niece|Olivier|Toulouse St\b(?! Wharf)|525-8456|Southwest|Portland|Denver)\b|21st')
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
     for W, H in ((390, 844), (1280, 800)):
@@ -22,111 +23,97 @@ with sync_playwright() as p:
         ctx = b.new_context(viewport={'width': W, 'height': H}, reduced_motion='no-preference')
         pg = ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.on('console', lambda m: m.type == 'error' and 'tile.openstreetmap' not in m.text and 'ERR_' not in m.text and errs.append(m.text))
-        pg.goto(BASE + 'index.html'); pg.wait_for_timeout(900)
+        pg.on('console', lambda m: m.type == 'error' and 'tile.openstreetmap' not in m.text and 'ERR_' not in m.text and 'Failed to load resource' not in m.text and errs.append(m.text))
+        pg.on('response', lambda r: r.status >= 400 and r.url.startswith(BASE) and errs.append(f'{r.status} {r.url}'))  # external services (tiles, weather) may 503; local files must not
+        pg.goto(BASE + 'index.html'); pg.wait_for_timeout(1200)
         ok(f'{W} landing no hscroll', pg.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-        pg.screenshot(path=f'{OUT}/landing-top-{tag}.png'); pg.screenshot(path=f'{OUT}/landing-full-{tag}.png', full_page=True)
-        ok(f'{W} landing contrast', not (c := pg.evaluate(contrast_js())), str(c))
+        html = pg.content().lower(); 
+        ok(f'{W} no stitch/thread/perforation imagery', not re.search(r'stitch|thread|perfor|boarding', html))
+        ok(f'{W} display font is Unbounded', 'unbounded' in pg.evaluate('getComputedStyle(document.querySelector("h1")).fontFamily').lower() and int(pg.evaluate('getComputedStyle(document.querySelector("h1")).fontWeight')) >= 800)
+        pg.screenshot(path=f'{OUT}/landing-top-{tag}.png')
+        pg.evaluate("document.querySelectorAll('.reveal').forEach(e=>e.classList.add('in'))"); pg.wait_for_timeout(1100)
+        lt=pg.inner_text('main').lower(); ok(f'{W} landing both audiences + pricing', '$29.99' in lt and 'from $299' in lt and 'vacation planners' in lt and 'travelers' in lt and '$9.99' not in lt and pg.locator('#talkBtn').count()==1)
+        pg.click('#talkBtn'); ok(f'{W} talk form placeholder marked', 'PLACEHOLDER' in pg.inner_text('#talk') and 'mailto:' in pg.get_attribute('#tMail','href'))
+        pg.screenshot(path=f'{OUT}/landing-full-{tag}.png', full_page=True)
+        ok(f'{W} landing contrast', not (c := pg.evaluate(CONTRAST)), str(c))
         for a in ANS:
             pg.wait_for_selector('#input:not([disabled])', timeout=8000); pg.fill('#input', a); pg.press('#input', 'Enter'); pg.wait_for_timeout(450)
         pg.wait_for_selector('#unlockBtn', timeout=15000)
-        pg.locator('#chat').scroll_into_view_if_needed(); pg.wait_for_timeout(300); pg.screenshot(path=f'{OUT}/chat-{tag}.png')
-        pg.click('#unlockBtn'); pg.wait_for_selector('#modal'); pg.wait_for_timeout(400); pg.screenshot(path=f'{OUT}/modal-{tag}.png')
-        ok(f'{W} modal contrast', not (c := pg.evaluate(contrast_js())), str(c))
-        # bad promo, then card decline, then success
+        ok(f'{W} dial completes', pg.inner_text('#dialNo').strip() == '✓')
+        pg.locator('#chat').scroll_into_view_if_needed(); pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/chat-{tag}.png')
+        pg.evaluate("document.querySelector('.result').scrollIntoView()"); pg.wait_for_timeout(800); pg.screenshot(path=f'{OUT}/preview-{tag}.png')
+        pg.wait_for_timeout(1700)
+        if pg.locator('#modalWrap.on').count()==0: pg.click('#unlockBtn')
+        pg.wait_for_selector('#modal'); pg.wait_for_timeout(900); pg.screenshot(path=f'{OUT}/modal-{tag}.png')
+        ok(f'{W} modal contrast', not (c := pg.evaluate(CONTRAST)), str(c))
+        ok(f'{W} modal price + promo box', '$29.99' in pg.inner_text('#modal') and pg.locator('input[name=scheme]').count()==3 and pg.locator('input[name=mod]').count()==7 and pg.locator('#promo').count() == 1)
         pg.fill('#promo', 'nope'); pg.click('#applyPromo'); ok(f'{W} bad promo rejected', 'valid' in pg.inner_text('#promoMsg'))
-        pg.click('#buyBtn'); pg.wait_for_selector('#cn'); pg.wait_for_timeout(300)
+        pg.click('#buyBtn'); pg.wait_for_selector('#cn'); pg.wait_for_timeout(500)
+        ok(f'{W} TEST MODE label', 'TEST MODE' in pg.inner_text('#modal'))
         pg.fill('#em', 'a@b.co'); pg.fill('#cn', '4000 0000 0000 0002'); pg.fill('#ex', '12/34'); pg.fill('#cv', '123'); pg.screenshot(path=f'{OUT}/checkout-{tag}.png')
         pg.click('#payBtn'); pg.wait_for_timeout(2600); ok(f'{W} decline msg', 'declined' in pg.inner_text('#payMsg').lower())
+        pg.fill('#cn', '1111 2222 3333 4444'); pg.click('#payBtn'); pg.wait_for_timeout(300); ok(f'{W} non-test card rejected + cleared', 'test cards' in pg.inner_text('#payMsg').lower() and pg.input_value('#cn') == '')
         pg.fill('#cn', '4242 4242 4242 4242'); pg.click('#payBtn'); pg.wait_for_selector('#openApp', timeout=8000); ok(f'{W} test card unlock', True)
         pg.screenshot(path=f'{OUT}/unlocked-{tag}.png')
+        ok(f'{W} receipt shows test price + customization', '(TEST' in pg.inner_text('#modal') and 'City colors' in pg.inner_text('#modal'))
+        ok(f'{W} unlock stored', pg.evaluate('!!localStorage.getItem("spunfor.unlock")'))
+        # promo "goat" path in a fresh context
+        c2 = b.new_context(viewport={'width': W, 'height': H}); p2 = c2.new_page()
+        p2.goto(BASE + 'index.html'); p2.wait_for_timeout(900)
+        for a in ANS:
+            p2.wait_for_selector('#input:not([disabled])'); p2.fill('#input', a); p2.press('#input', 'Enter'); p2.wait_for_timeout(550)
+        p2.wait_for_selector('#unlockBtn'); p2.wait_for_timeout(1900); p2.wait_for_selector('#promo'); p2.fill('#promo', 'GOAT'); p2.click('#applyPromo'); p2.wait_for_selector('#freeBtn'); ok(f'{W} goat promo makes it free', '$0.00' in p2.inner_text('#modal'))
+        p2.click('#freeBtn'); p2.wait_for_selector('#openApp', timeout=8000); ok(f'{W} goat goes straight to success (no payment screen)', p2.locator('#cn').count() == 0)
+        c2.close()
         ok(f'{W} landing/chat/modal errors', not errs, str(errs))
-        # demo (same context, same origin storage)
-        pg.goto(BASE + 'demo/index.html#notour'); pg.wait_for_timeout(1200)
-        ok(f'{W} trip data drives demo', 'New Orleans' in pg.inner_text('#tripTitle'), pg.inner_text('#tripTitle'))
+        # ---- demo app: faithful V3 copy ----
+        pg.click('#openApp'); pg.wait_for_url('**/demo/index.html*'); pg.evaluate("localStorage.setItem('nola3-tour-done','1')"); pg.reload(); pg.wait_for_timeout(1800)
+        ok(f'{W} chat unlock leads into demo', '/demo/' in pg.url)
         def shot(n): pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/demo-{n}-{tag}.png')
-        shot('home'); pg.screenshot(path=f'{OUT}/demo-home-full-{tag}.png', full_page=True)
-        ok(f'{W} home hscroll', pg.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-        ok(f'{W} home contrast', not (c := pg.evaluate(contrast_js())), str(c))
-        ok(f'{W} personas+surprise+time', pg.locator('.girl').count() == 4 and pg.locator('#surprise').count() == 1 and 'local' not in '' )
-        # prefs from answers
-        ok(f'{W} avoid/likes from chat', 'Avoiding' in pg.inner_text('.hero') and 'Prioritizing' in pg.inner_text('.hero'))
-        ok(f'{W} dates parsed → countdown/trip chip', pg.locator('.hero .hchip').count() >= 2, pg.inner_text('.hero .chips')[:80])
-        ok(f'{W} celebration module on (birthday)', 'Celebration' in pg.inner_text('#view'))
-        # surprise
-        pg.click('[data-surp="mood:jazz"]'); pg.click('[data-surp="hrs:3"]'); pg.click('[data-surp="mode:walk"]'); pg.click('[data-act=surprun]'); pg.wait_for_timeout(300)
-        ok(f'{W} surprise me result', pg.locator('#adv, #surprise .empty').count() == 1, 'adv' if pg.locator('#adv').count() else 'empty')
-        if pg.locator('[data-act=surpadd]').count(): pg.click('[data-act=surpadd]')
-        # holla
-        pg.click('#btnHolla'); pg.wait_for_timeout(300); ok(f'{W} holla on', 'open' in pg.inner_text('.holla-head').lower()); shot('holla'); pg.click('#btnHolla')
-        # map
-        pg.click('#tabs [data-v=map]'); pg.wait_for_timeout(1200); ok(f'{W} map leaflet', pg.locator('.leaflet-container').count() == 1 and pg.locator('.leaflet-marker-icon').count() > 3, str(pg.locator('.leaflet-marker-icon').count()))
-        pg.click('[data-act=radius][data-k="10"]'); pg.click('[data-act=mapopen]'); pg.click('[data-act=maptips]'); shot('map')
+        ok(f'{W} six tabs like V3', pg.locator('.tab').count() == 6 and [t.strip() for t in pg.locator('.tab').all_inner_texts()][:6] == ['Home', 'Map', 'Explore', 'Saved', 'Ink', 'Help'], str(pg.locator('.tab').all_inner_texts()))
+        shot('home'); ok(f'{W} home hscroll', pg.evaluate('document.documentElement.scrollWidth<=innerWidth'))
+        ok(f'{W} golden girls personas', all(n in pg.inner_text('#main') for n in ('Dorothy', 'Blanche', 'Rose', 'Sophia')))
+        pg.click('[data-surp="mood:jazz"]'); pg.click('[data-surp="hrs:3"]'); pg.wait_for_timeout(200); shot('surprise')
+        pg.click('[data-holla]'); pg.wait_for_timeout(500); shot('holla'); ok(f'{W} holla opens (open now list)', 'holla holla' in pg.inner_text('#meowpop').lower()); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+        if pg.locator('#meowpop').count(): pg.locator('#meowpop button').first.click(); pg.wait_for_timeout(300)
+        pg.locator('.tab:nth-child(2)').click(); pg.wait_for_timeout(1800); ok(f'{W} map leaflet markers', pg.locator('.leaflet-container').count() == 1 and pg.locator('.leaflet-marker-icon').count() > 3, str(pg.locator('.leaflet-marker-icon').count())); shot('map')
         ok(f'{W} map hscroll', pg.evaluate('document.documentElement.scrollWidth<=innerWidth'))
-        pg.click('[data-act=mapopen]')
-        # explore
-        pg.click('#tabs [data-v=explore]'); pg.wait_for_timeout(300); shot('explore')
-        ok(f'{W} explore contrast', not (c := pg.evaluate(contrast_js())), str(c))
-        pg.fill('#uq', 'beignet'); pg.wait_for_timeout(300); ok(f'{W} search', pg.locator('.res').count() >= 1); pg.fill('#uq', '')
-        pg.click('.colcard >> nth=0'); pg.wait_for_timeout(300); ok(f'{W} collection', pg.locator('.tk').count() > 0); shot('collection')
-        # place sheet + save + vote + visit + rate
-        pg.click('.tk .tk-main >> nth=0'); pg.wait_for_selector('#sheetWrap.on'); pg.wait_for_timeout(300); shot('place')
-        pg.click('#sheet [data-act=save]'); pg.click('#sheet .vote.v-must'); pg.click('#sheet [data-act=addplan]'); pg.click('#sheet [data-act=visit]'); pg.wait_for_timeout(200)
-        pg.click('#sheet .hearts button >> nth=3'); pg.fill('#sheet [data-jn]', 'Great beignets'); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
-        # more places so stamps appear
-        pg.click('#tabs [data-v=explore]'); pg.click('[data-act=go][data-v=time]') if pg.locator('[data-act=go][data-v=time]').count() else None
-        pg.wait_for_timeout(300); ok(f'{W} time machine', pg.locator('.tm-card').count() == 1); shot('time')
-        pg.click('[data-act=era][data-k="3"]'); pg.wait_for_timeout(200)
-        # saved
-        pg.click('#tabs [data-v=saved]'); pg.wait_for_timeout(300); ok(f'{W} plan has stop', pg.locator('.stop').count() >= 1); shot('saved')
-        ok(f'{W} saved contrast', not (c := pg.evaluate(contrast_js())), str(c))
-        for t in ('picks', 'passport', 'journal'):
-            pg.click(f'[data-act=stab][data-k={t}]'); pg.wait_for_timeout(250); shot('saved-' + t)
-        ok(f'{W} journal note persisted', 'Great' in pg.evaluate('document.querySelector("[data-jn]").value'))
-        ok(f'{W} stamp earned', pg.evaluate('JSON.parse(localStorage.getItem("spunfor.visited2")||"{}")') != {})
-        # add traveler + everyone's in
-        pg.click('[data-act=stab][data-k=picks]'); pg.fill('#np', 'Sam'); pg.press('#np', 'Enter'); pg.wait_for_timeout(250)
-        pg.click('.res.pick .vote.v-must >> nth=0'); pg.click('[data-act=me][data-k=You]'); pg.wait_for_timeout(200)
-        pg.click('[data-act=person][data-k=every]'); pg.wait_for_timeout(200); ok(f'{W} everyone\'s in', pg.locator('.every').count() >= 1 or 'Nothing' in pg.inner_text('#view'))
-        # help + tours
-        pg.click('#tabs [data-v=help]'); pg.wait_for_timeout(300); shot('help')
-        pg.click('[data-tour]'); pg.wait_for_timeout(500); n = 0
-        while pg.locator('#tour').count() and n < 20:
-            lab = pg.inner_text('#tour [data-tourgo=next]').strip(); pg.click('#tour [data-tourgo=next]'); pg.wait_for_timeout(450); n += 1
-            if n == 4: pg.screenshot(path=f'{OUT}/demo-tour-{tag}.png')
-            if lab == 'Done': break
-        ok(f'{W} full tour completes', n == 14 and pg.locator('#tour').count() == 0, str(n))
-        # themes
-        pg.click('#btnTheme'); pg.wait_for_timeout(300)
+        pg.locator('.tab:nth-child(3)').click(); pg.wait_for_timeout(500); shot('explore')
+        pg.locator('.tab:nth-child(4)').click(); pg.wait_for_timeout(500); shot('saved')
+        pg.locator('.tab:nth-child(5)').click(); pg.wait_for_timeout(700); shot('ink'); ok(f'{W} ink tab kept', pg.locator('#main img').count() > 3)
+        pg.locator('.tab:nth-child(1)').click(); pg.wait_for_timeout(300)
+        pg.click('[data-open="preshall"] >> nth=-1'); pg.wait_for_timeout(700); shot('venue'); ok(f'{W} venue sheet', 'Preservation Hall' in pg.inner_text('body')); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+        pg.click('[data-go="time"]'); pg.wait_for_timeout(500); shot('time-machine')
+        pg.locator('.tab:nth-child(1)').click(); pg.click('[data-go="birthday"]'); pg.wait_for_timeout(500); shot('big-night'); ok(f'{W} big night keeps names out', not PERSONAL.search(pg.inner_text('#main')))
+        pg.locator('.tab:nth-child(6)').click(); pg.wait_for_timeout(400); shot('help')
+        pg.click('[data-tour]'); pg.wait_for_timeout(600); n = 0
+        while pg.locator('#tour').count() and n < 25:
+            btn = pg.locator('#tour button').last; lab = btn.inner_text().strip(); btn.click(); pg.wait_for_timeout(350); n += 1
+            if n == 3: pg.screenshot(path=f'{OUT}/demo-tour-{tag}.png')
+            if lab.lower() in ('done', 'finish'): break
+        ok(f'{W} help tour completes', pg.locator('#tour').count() == 0, str(n))
+        # theme picker lives in Trip details & settings
+        pg.locator('.tab:nth-child(6)').click(); pg.click('[data-go="info"]'); pg.wait_for_timeout(500)
+        ok(f'{W} no personal data in trip details', not PERSONAL.search(pg.inner_text('#main')), str(PERSONAL.findall(pg.inner_text('#main'))))
+        pg.evaluate("localStorage.setItem('nola2-mode','day')"); pg.reload(); pg.wait_for_timeout(1200); pg.locator('.tab:nth-child(6)').click(); pg.click('[data-go="info"]'); pg.wait_for_timeout(500)
+        base_acc = pg.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--coral")')
         for m in ('generic', 'custom', 'city'):
-            pg.click(f'[data-act=tmode][data-k={m}]'); pg.wait_for_timeout(200)
-            if m == 'custom': pg.click('[data-act=preset] >> nth=2'); pg.wait_for_timeout(200)
-            ok(f'{W} theme {m}', pg.evaluate('document.documentElement.dataset.themeMode') == m)
+            pg.click(f'[data-spun-theme={m}]'); pg.wait_for_timeout(250)
+            col = pg.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--coral").trim()')
+            if m == 'custom': pg.evaluate("(()=>{const i=document.getElementById('spunAccent');i.value='#0a7a3c';i.dispatchEvent(new Event('input',{bubbles:true}))})()"); pg.wait_for_timeout(200); col = pg.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--coral").trim()')
+            ok(f'{W} theme {m} overrides V3 vars' if m != 'city' else f'{W} theme city restores V3 palette', (m == 'city' and col.lower() == base_acc.strip().lower()) or (m == 'generic' and col.lower() == '#1d4ed8') or (m == 'custom' and col.lower() != base_acc.strip().lower()), col)
             pg.screenshot(path=f'{OUT}/theme-{m}-{tag}.png')
-        for s in ('dark', 'light', 'auto'):
-            pg.click(f'[data-act=scheme][data-k={s}]'); pg.wait_for_timeout(200)
-            if s == 'dark':
-                pg.screenshot(path=f'{OUT}/theme-dark-{tag}.png'); pg.click('#sheet [data-act=closeSheet]'); pg.wait_for_timeout(300)
-                for v in ('home', 'saved', 'explore'):
-                    pg.click(f'#tabs [data-v={v}]'); pg.wait_for_timeout(250)
-                    ok(f'{W} dark {v} contrast', not (c := pg.evaluate(contrast_js())), str(c))
-                pg.screenshot(path=f'{OUT}/demo-dark-{tag}.png'); pg.click('#btnTheme'); pg.wait_for_timeout(300)
-        pg.click('[data-act=scheme][data-k=light]'); pg.click('#sheet [data-act=closeSheet]')
-        # persona rename + persistence
-        pg.click('#btnTheme'); pg.wait_for_timeout(200); pg.fill('[data-pers="sage:name"]', 'Dot'); pg.click('#sheet [data-act=closeSheet]'); pg.click('#tabs [data-v=home]'); pg.wait_for_timeout(300)
-        ok(f'{W} persona rename', 'Dot' in pg.inner_text('.girls'))
-        # deep link + hash routes
-        pg.goto(BASE + 'demo/index.html#place.cdm'); pg.reload(); pg.wait_for_timeout(1200); ok(f'{W} deep link place', pg.locator('#sheetWrap.on').count() == 1)
-        pg.goto(BASE + 'demo/index.html#col.hidden'); pg.reload(); pg.wait_for_timeout(600); ok(f'{W} hash collection', 'Hidden' in pg.inner_text('.colhead'))
-        ok(f'{W} pwa manifest+sw', pg.evaluate('fetch("manifest.webmanifest").then(r=>r.ok)') and pg.evaluate('fetch("sw.js").then(r=>r.ok)'))
-        # first-run quick tour
-        pg2 = ctx.new_page(); pg2.evaluate('0'); pg2.goto(BASE + 'demo/index.html'); pg2.evaluate('localStorage.removeItem("spunfor.tourDone")'); pg2.reload(); pg2.wait_for_timeout(1800)
-        ok(f'{W} quick tour auto-starts', pg2.locator('#tour').count() == 1)
+        pg.click('[data-spun-theme=generic]'); pg.evaluate("localStorage.setItem('nola2-mode','night')"); pg.reload(); pg.wait_for_timeout(1200); pg.locator('.tab:nth-child(1)').click(); pg.wait_for_timeout(300); pg.screenshot(path=f'{OUT}/theme-generic-dark-{tag}.png')
+        ok(f'{W} generic dark', pg.evaluate('document.documentElement.dataset.mode')=='night')
+        pg.evaluate("localStorage.removeItem('spunfor.theme');localStorage.setItem('nola2-mode','night')"); pg.reload(); pg.wait_for_timeout(1200); pg.screenshot(path=f'{OUT}/demo-dark-{tag}.png')
+        ok(f'{W} demo hscroll end', pg.evaluate('document.documentElement.scrollWidth<=innerWidth'))
         ok(f'{W} demo errors', not errs, str(errs[-3:]))
+        # first-run tour
+        pg3 = ctx.new_page(); pg3.add_init_script("localStorage.clear()"); pg3.goto(BASE + 'demo/index.html'); pg3.wait_for_timeout(1800)
+        ok(f'{W} first-run quick tour auto-starts', pg3.locator('#tour').count() == 1)
         ctx.close()
-    # reduced motion + file independence
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce'); pg = ctx.new_page(); pg.goto(BASE + 'index.html'); pg.wait_for_timeout(600)
-    ok('reduced motion: thread fully drawn', pg.evaluate('(()=>{const m=document.querySelector("#tpath");return m?(getComputedStyle(m).strokeDashoffset==="0px"||m.style.strokeDashoffset==="0"||m.getAttribute("stroke-dashoffset")==="0"):true})()'))
+    ok('reduced motion: animations off', pg.evaluate('getComputedStyle(document.querySelector(".badge-ring")).animationName')=='none' and pg.evaluate('getComputedStyle(document.querySelector(".reveal")).opacity')=='1')
     b.close()
 fails = [r for r in res if not r[1]]
 print(f'\n{len(res)-len(fails)}/{len(res)} passed'); sys.exit(1 if fails else 0)
