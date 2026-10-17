@@ -374,3 +374,20 @@ a.m-btn{text-decoration:none}
 .chips .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .chip.editing{max-width:100%}
 html,body{overflow-x:clip}
+/* spin wheel modal */
+.spin-row{margin:28px 0 0;display:flex;flex-wrap:wrap;gap:14px 18px;align-items:center}
+.spin-row .fine{max-width:52ch;margin:0}
+.wheel-modal{width:min(480px,100%)}
+.wchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.wchip{border:2px solid var(--ink);background:var(--bone);border-radius:999px;padding:6px 12px;font:700 .8rem var(--body);cursor:pointer;min-height:36px;max-width:100%;overflow-wrap:anywhere;text-align:left}
+.wchip.set{background:var(--lime)}
+.wchip.cur{box-shadow:3px 3px 0 var(--ink)}
+.wheel-wrap{position:relative;display:grid;place-items:center;margin:8px 0}
+.wheel-wrap canvas{max-width:100%;border-radius:50%}
+.wptr{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--tom);z-index:2;filter:drop-shadow(0 2px 0 var(--ink))}
+.wres{text-align:center;margin:8px 0;min-height:1.5em}
+.wctl{display:grid;gap:10px;margin-top:6px}
+.wsel select,.wother+input{width:100%;min-height:48px;border:2px solid var(--ink);border-radius:14px;padding:0 12px;font:600 1rem var(--body);background:#fff}
+.wother{display:block;margin:12px 0 4px;font-weight:700;font-size:.9rem}
+#wOther{width:100%;min-height:48px;border:2px solid var(--ink);border-radius:14px;padding:0 12px;font:600 1rem var(--body)}
+.m-btn:disabled{opacity:.45;cursor:not-allowed}
