@@ -14,14 +14,15 @@
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=7">
 </head>
 <body>
+<script src="../../bar.js"></script>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top" id="top">
   <a class="brand" href="#home" aria-label="spunfor.me home"><span class="bmark" aria-hidden="true"></span><span class="bword">spunfor<i>.me</i></span></a>
   <span class="tripname" id="tripName"></span>
-  <a class="holla" href="#now" id="hollaBtn"><span class="dot" aria-hidden="true"></span>Open now</a>
+  <button class="inst" type="button" id="instBtn" aria-label="Install app"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg><span>Install</span></button><button class="holla" type="button" id="hollaBtn" aria-haspopup="dialog"><span class="dot" aria-hidden="true"></span>Holla Holla</button>
 </header>
 <main id="main" tabindex="-1"><div class="loading" id="boot"><b>Spinning up your trip…</b><span id="bootMsg">Loading the city</span></div></main>
 <nav class="tabs" aria-label="Sections">
@@ -36,9 +37,10 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="vendor/leaflet/leaflet.js" defer></script>
 <script src="vendor/markercluster/leaflet.markercluster.js" defer></script>
-<script src="core.js" defer></script>
-<script src="trip.js" defer></script>
-<script src="ui.js" defer></script>
-<script src="ask.js" defer></script>
+<script src="core.js?v=7" defer></script>
+<script src="trip.js?v=7" defer></script>
+<script src="extras.js?v=7" defer></script>
+<script src="ui.js?v=7" defer></script>
+<script src="ask.js?v=7" defer></script>
 </body>
 </html>

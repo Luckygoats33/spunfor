@@ -13,6 +13,7 @@ function setStyle(s, save){
 }
 $$(".sb-opts button").forEach(b => b.addEventListener("click", () => setStyle(b.dataset.s, true)));
 setStyle(root.getAttribute("data-style") || "swiss", false);
+window.SFsetStyle = setStyle;
 
 /* ---------- city index (1,129 cities; r=1 means curated file is ready) ---------- */
 let CITIES = [];
@@ -60,15 +61,18 @@ function autocomplete(input, list, onPick){
 /* ---------- live phone preview: real Boston places open right now ---------- */
 async function mock(){
   const j = await SF.getJSON("cities/boston.json", 10000); if(!j) return;
+  /* destination photography for the photo-led styles (Cinematic, After Dark): a credited Commons landmark shot */
+  const hero = j.P.filter(p => j.PHOTOS[p.id] && p.c.some(c => ["attraction", "nature", "history"].includes(c)))[0];
+  if(hero){ const ph = j.PHOTOS[hero.id]; document.documentElement.style.setProperty("--hero-img", 'url("' + ph.src.replace(/width=\d+/, "width=1600") + '")'); const cr = document.createElement("a"); cr.className = "hero-credit"; cr.href = ph.page; cr.target = "_blank"; cr.rel = "noopener"; cr.textContent = hero.n + " · " + ph.credit.replace(/^Photo: /, "").slice(0, 80); const hs = document.querySelector(".hero"); if(hs) hs.appendChild(cr); }
   const keep = SF.city; SF.city = j;
   const N = SF.cityNow(), hr = N.mins / 60;
-  $("#mockGreet").textContent = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
-  $("#mockTime").textContent = SF.DOWL[N.dow].slice(0, 3) + " " + SF.fmtM(N.mins);
+  ($("#mockGreet") || {}).textContent = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
+  ($("#mockTime") || {}).textContent = SF.DOWL[N.dow].slice(0, 3) + " " + SF.fmtM(N.mins);
   const open = j.P.filter(p => SF.statusAt(p).state === "open").slice(0, 3);
   const list = open.length ? open : j.P.slice(0, 3);
-  $("#mockList").innerHTML = list.map(p => { const st = SF.statusAt(p); return '<li><b>' + esc(p.n) + '</b><span>' + esc(j.CATS[p.c[0]] || "") + ' · ' + esc(SF.statusText(st)) + '</span></li>'; }).join("");
+  ($("#mockList") || {}).innerHTML = list.map(p => { const st = SF.statusAt(p); return '<li><b>' + esc(p.n) + '</b><span>' + esc(j.CATS[p.c[0]] || "") + ' · ' + esc(SF.statusText(st)) + '</span></li>'; }).join("");
   const nx = j.P.find(p => p.c.includes("eat") && !list.includes(p));
-  if(nx) $("#mockNext").textContent = nx.n;
+  if(nx) ($("#mockNext") || {}).textContent = nx.n;
   SF.city = keep;
 }
 
@@ -84,11 +88,13 @@ function pickCity(c, raw){
 autocomplete($("#bCity"), $("#bCityList"), c => pickCity(c));
 $("#bCity").addEventListener("change", () => { if(!B.city || !$("#bCity").value.startsWith(B.city.n)){ const m = findCities($("#bCity").value, 1)[0]; if(m && SF.lc($("#bCity").value).startsWith(SF.lc(m.n))) pickCity(m); else if($("#bCity").value.trim()) pickCity(null, $("#bCity").value.trim()); } });
 
-autocomplete($("#whereIn"), $("#whereList"), c => { $("#whereIn").value = c.n + ", " + c.st; pickCity(c); $("#build").scrollIntoView({behavior:"smooth"}); setTimeout(() => $("#bArrive").focus({preventScroll:true}), 600); });
+/* the hero box starts the trip chat with the city filled in */
+const toChat = v => { $("#build").scrollIntoView({behavior:"smooth"}); setTimeout(() => { if(v && SF.chatSay) SF.chatSay(v); const ci = $("#chatIn"); if(ci) ci.focus({preventScroll:true}); }, 500); };
+autocomplete($("#whereIn"), $("#whereList"), c => { $("#whereIn").value = c.n + ", " + c.st; pickCity(c); toChat(c.n + ", " + c.st); });
 $("#whereForm").addEventListener("submit", e => {
   e.preventDefault(); const v = $("#whereIn").value.trim();
   if(v){ const m = findCities(v, 1)[0]; if(m && SF.lc(v).startsWith(SF.lc(m.n))) pickCity(m); else pickCity(null, v); }
-  $("#build").scrollIntoView({behavior:"smooth"}); setTimeout(() => (v ? $("#bArrive") : $("#bCity")).focus({preventScroll:true}), 600);
+  toChat(v);
 });
 
 /* people */
@@ -158,6 +164,27 @@ $("#builder").addEventListener("submit", e => {
 });
 $("#bShare").addEventListener("click", async () => { if(!B.link) return; const text = "Our trip app is ready. Open it, then add it to your home screen:"; if(navigator.share){ try{ await navigator.share({title:"Our trip app", text, url:B.link}); return; }catch(e){ if(e.name === "AbortError") return; } } try{ await navigator.clipboard.writeText(text + " " + B.link); toast("Link copied. Paste it into a text."); }catch(e){ toast("Copy the link from the Open button."); } });
 $("#bCopy").addEventListener("click", async () => { try{ await navigator.clipboard.writeText(B.link); toast("Link copied."); }catch(e){ toast("Couldn't copy here."); } });
+
+/* ---------- live demo in the hero phone: a real Boston trip app (demo mode: no tour, no saving) ---------- */
+(function(){
+  const fr = $("#demoFrame"); if(!fr) return;
+  const sat = new Date(); sat.setDate(sat.getDate() + ((6 - sat.getDay() + 7) % 7 || 7));
+  const a = sat.toISOString().slice(0, 10);
+  const demo = {v:1, city:"boston", cityName:"Boston", state:"MA", center:[42.3603, -71.0578], name:"Boston weekend", arrive:a, depart:SF.ymdAdd(a, 2), travelers:["Sam", "Alex"], hotel:{name:"Omni Parker House", lat:42.357837, lon:-71.060236, ad:"60 School Street, Boston, MA 02108"}, flights:[], likes:["music", "history", "eat"], skip:["sports"], color:"#E3000F", ink:"#FFFFFF", bot:"Spun", vibe:"friendly", id:"demo-boston"};
+  const url = "app/?demo=1&t=" + SF.encodeTrip(demo);
+  fr.src = url; $("#demoOpen").href = url;
+  const fit = () => { const ph = $("#demoPhone"); if(ph) ph.style.setProperty("--ps", (ph.clientWidth / 375).toFixed(4)); };
+  fit(); window.addEventListener("resize", fit);
+})();
+/* ---------- trip-type starters feed the chat ---------- */
+document.querySelectorAll("[data-start]").forEach(b => b.addEventListener("click", () => toChat(b.dataset.start)));
+/* ---------- your trips (this browser only) ---------- */
+(function(){
+  let mine = []; try{ mine = JSON.parse(localStorage.getItem("sf.myTrips") || "[]").filter(t => t && t.link); }catch(e){}
+  const el = $("#myTrips"); if(!el || !mine.length) return;
+  el.hidden = false;
+  el.innerHTML = '<p class="fine"><b>Your trips on this device</b></p>' + mine.slice(0, 4).map(t => '<a class="mytrip" href="' + esc(t.link) + '">' + esc(t.city || "Trip") + (t.arrive ? ' · ' + esc(new Date(t.arrive + "T12:00:00Z").toLocaleDateString("en-US", {month:"short", day:"numeric", timeZone:"UTC"})) : '') + ' →</a>').join("");
+})();
 
 /* defaults: arrive two weeks out */
 const d = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);

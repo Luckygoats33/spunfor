@@ -33,7 +33,13 @@ SF.loadTrip = function(){
   if(!t) t = SF.store.get("sf.lastTrip", null);
   if(!t || !t.city) return null;
   t.id = t.id || ("t" + Math.abs([...JSON.stringify([t.city, t.arrive, t.travelers])].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)).toString(36));
-  SF.store.set("sf.lastTrip", t);
+  SF.demo = new URLSearchParams(location.search).get("demo") === "1";
+  if(!SF.demo){
+    SF.store.set("sf.lastTrip", t);
+    /* remember it on this phone so the home page can list "Your trips" */
+    const mine = SF.store.get("sf.myTrips", []), link = SF.shareLink(t);
+    if(!mine.some(x => x.id === t.id)){ mine.unshift({id:t.id, at:Date.now(), city:t.cityName || t.city, arrive:t.arrive, link}); SF.store.set("sf.myTrips", mine.slice(0, 12)); }
+  }
   return t;
 };
 SF.shareLink = t => location.origin + location.pathname + "?t=" + b64.enc(Object.assign({}, t, {id:t.id}));
@@ -70,7 +76,8 @@ SF.tripStatus = function(){
 };
 
 /* ---------- hours: {mon:[["09:00","17:00"]], ...}; a close earlier than open runs past midnight ---------- */
-SF.hoursOf = p => (SF.city.HRS[p.id] || {}).h || null;
+/* a week with no hours on any day means "unknown", not "closed all week" */
+SF.hoursOf = p => { const h = (SF.city.HRS[p.id] || {}).h; return h && Object.values(h).some(d => d && d.length) ? h : null; };
 SF.statusAt = function(p, at){
   const h = SF.hoursOf(p); if(!h) return {state:"unknown"};
   const W = at || SF.cityNow(), today = DOW[W.dow], yest = DOW[(W.dow + 6) % 7];
@@ -86,10 +93,10 @@ SF.statusAt = function(p, at){
   return {state:"closed"};
 };
 SF.statusText = function(st){
-  if(st.state === "open") return "Open · until " + SF.fmtM(st.until);
+  if(st.state === "open") return "Open per listed hours · until " + SF.fmtM(st.until);
   if(st.state === "later") return "Opens " + SF.fmtM(st.opens) + (st.soon ? " (soon)" : "");
   if(st.state === "closed") return st.inDays === 1 ? "Closed · opens tomorrow " + SF.fmtM(st.opens) : st.opens != null ? "Closed · opens " + SF.DOWL[st.opensDay].slice(0, 3) + " " + SF.fmtM(st.opens) : "Closed";
-  return "Hours not listed";
+  return "Hours unknown · call ahead";
 };
 SF.hoursRows = function(p){
   const h = SF.hoursOf(p); if(!h) return null;
@@ -162,7 +169,8 @@ SF.parseOSMHours = function(raw){
   return any ? out : null;
 };
 SF.buildLiveCity = async function(trip, onProgress){
-  const key = "sf.live." + SF.lc(trip.cityName || trip.city).replace(/[^a-z0-9]+/g, "-");
+  const hb = trip.hotel && trip.hotel.lat ? [+trip.hotel.lat, +trip.hotel.lon] : null;
+  const key = "sf.live2." + SF.lc(trip.cityName || trip.city).replace(/[^a-z0-9]+/g, "-") + (hb ? "@" + hb[0].toFixed(2) + "," + hb[1].toFixed(2) : "");
   const cached = SF.store.get(key, null);
   if(cached && Date.now() - (cached._at || 0) < 7 * 864e5) return cached;
   const prog = onProgress || SF.onLiveProgress || (() => {});
@@ -174,14 +182,17 @@ SF.buildLiveCity = async function(trip, onProgress){
     center = [+g[0].lat, +g[0].lon];
   }
   if(!tz){ const w = await getJSON("https://api.open-meteo.com/v1/forecast?latitude=" + center[0] + "&longitude=" + center[1] + "&timezone=auto&forecast_days=1&daily=sunset", 8000); tz = (w && w.timezone) || "America/Chicago"; }
-  const bb = [center[1] - 0.09, center[0] - 0.07, center[1] + 0.09, center[0] + 0.07].map(x => x.toFixed(4)).join(",");
+  /* search around the hotel when there is one (a Strip hotel should get Strip places), and still cover downtown */
+  const near = hb && SF.meters(hb, center) < 40000 ? hb : null, bias = near || center;
+  const lats = [center[0] - 0.06, center[0] + 0.06].concat(near ? [near[0] - 0.07, near[0] + 0.07] : []), lons = [center[1] - 0.08, center[1] + 0.08].concat(near ? [near[1] - 0.09, near[1] + 0.09] : []);
+  const bb = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)].map(x => x.toFixed(4)).join(",");
   const P = [], COORD = {}, seen = {}, CATS = {};
   let n = 0;
   for(const [cid, label, tags] of LIVE_CATS){
     prog("Spinning up " + label.toLowerCase() + "…");
     let got = 0;
     for(const [tag, word] of tags){
-      const j = await getJSON("https://photon.komoot.io/api/?q=" + encodeURIComponent(word) + "&osm_tag=" + encodeURIComponent(tag) + "&bbox=" + bb + "&lat=" + center[0] + "&lon=" + center[1] + "&limit=14&lang=en", 9000);
+      const j = await getJSON("https://photon.komoot.io/api/?q=" + encodeURIComponent(word) + "&osm_tag=" + encodeURIComponent(tag) + "&bbox=" + bb + "&lat=" + bias[0] + "&lon=" + bias[1] + "&limit=16&lang=en", 9000);
       for(const f of (j && j.features) || []){
         const pr = f.properties || {}; if(!pr.name) continue;
         const k = SF.lc(pr.name).replace(/[^a-z0-9]/g, ""); if(seen[k]) { const ex = P.find(p => p.k === k); if(ex && !ex.c.includes(cid)) ex.c.push(cid); continue; }

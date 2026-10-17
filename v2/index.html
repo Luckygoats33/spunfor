@@ -16,16 +16,7 @@
 <body>
 <a class="skip" href="#build">Skip to the trip builder</a>
 
-<div class="stylebar" role="region" aria-label="Design styles">
-  <span class="sb-l">Style</span>
-  <div class="sb-opts" role="radiogroup" aria-label="Pick a design style">
-    <button type="button" role="radio" data-s="spun"><b>1</b> Spun</button>
-    <button type="button" role="radio" data-s="postcard"><b>2</b> Postcard</button>
-    <button type="button" role="radio" data-s="night"><b>3</b> Night Out</button>
-    <button type="button" role="radio" data-s="swiss"><b>4</b> Swiss <span class="sb-pick">picked</span></button>
-    <button type="button" role="radio" data-s="field"><b>5</b> Field Guide</button>
-  </div>
-</div>
+<script src="../bar.js"></script>
 
 <header class="nav">
   <a class="logo" href="#top" aria-label="spunfor.me home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path class="pin" d="M32 61C17.5 46.5 9 36.5 9 25.5a23 23 0 0 1 46 0C55 36.5 46.5 46.5 32 61Z"/><path class="sp" d="M32 26.5m-2.2 0a2.2 2.2 0 1 0 4.4 0a4.6 4.6 0 1 0 -9.2 0a7 7 0 1 0 14 0a9.4 9.4 0 1 0 -18.8 0"/><circle class="dot" cx="32" cy="26.5" r="2.4"/></svg></span><span class="word">spunfor<i>.me</i></span></a>
@@ -39,7 +30,7 @@
     <div class="hero-copy">
       <p class="eyebrow"><span class="pill">Free in beta</span> Trip apps for 1,129 US cities</p>
       <h1>Your trip, <em>spun</em> into an&nbsp;app.</h1>
-      <p class="lead">Tell us where and when. Get an app that knows what's open right now, plans your days, checks you in as you go and finds anything nearby.</p>
+      <p class="lead">Create your own personal travel app in minutes: what's open right now, a plan for every day, a map, check-ins and answers on the go.</p>
       <form class="where" id="whereForm" autocomplete="off">
         <label for="whereIn" class="sr">Where are you going?</label>
         <div class="where-box">
@@ -49,19 +40,14 @@
         <ul class="ac" id="whereList" role="listbox" hidden></ul>
         <p class="fine" id="whereHint">Try Boston, Chicago, Asheville or your hometown. No sign-up.</p>
       </form>
+      <div class="starters" role="group" aria-label="Start from a trip type"><span class="fine">Or start with:</span><button type="button" data-start="It's a couples getaway">Couples getaway</button><button type="button" data-start="It's a birthday trip">Birthday</button><button type="button" data-start="It's a family trip with the kids">Family</button><button type="button" data-start="It's a solo trip, just me">Solo</button><button type="button" data-start="It's a friends' weekend">Friends' weekend</button><button type="button" data-start="It's a road trip">Road trip</button></div>
+      <div class="mytrips" id="myTrips" hidden></div>
       <ul class="vows" aria-label="Highlights"><li>Free while in beta</li><li>No account</li><li>No tracking</li><li>Add it to your home screen</li></ul>
     </div>
     <div class="hero-art">
-      <div class="phone" aria-label="Preview of a spunfor.me trip app for Boston">
-        <div class="ph-top"><span class="ph-logo">spunfor.me</span><span class="ph-holla">Holla Holla</span></div>
-        <div class="ph-hero"><span class="ph-k">Boston · <span id="mockTime">right now</span></span><b>Good <span id="mockGreet">evening</span>, Sam &amp; Alex.</b><span class="ph-chip">Trip starts Wed, Nov 4</span></div>
-        <div class="ph-sec">Open right now</div>
-        <ul class="ph-list" id="mockList"><li><b>Loading Boston…</b><span>&nbsp;</span></li></ul>
-        <div class="ph-next"><span>Next up</span><b id="mockNext">Lunch in the North End</b></div>
-        <div class="ph-tabs"><span class="on">Home</span><span>Map</span><span>Explore</span><span>Saved</span></div>
-        <div class="ph-ask">Ask</div>
-      </div>
-      <p class="fine art-cap">Live data: these Boston places are open right now in Boston time.</p>
+      <div class="phone live" id="demoPhone"><iframe id="demoFrame" title="Live demo: a real Boston trip app you can tap through" loading="eager"></iframe></div>
+      <p class="fine art-cap">Live demo. Tap around: Open now, Map, Explore, Trip, Ask. This is a real Boston trip app.</p>
+      <div class="demo-acts"><a class="btn small" id="demoOpen" href="#" target="_blank" rel="noopener">Open the full demo ↗</a><a class="btn ghost small" href="../demo/index.html" target="_blank" rel="noopener">See the New Orleans original ↗</a></div>
     </div>
   </div>
 </section>
@@ -102,7 +88,16 @@
 
 <section class="sec build" id="build">
   <div class="wrap build-grid">
-    <div class="sec-h"><p class="eyebrow">Start here</p><h2>Build your trip app.</h2><p class="lead small">Everything stays in your browser. Nothing is sent anywhere until you share your link.</p></div>
+    <div class="sec-h"><p class="eyebrow">Start here</p><h2>Build your trip app.</h2><p class="lead small">Just tell us about the trip, like you would a friend. Type it or say it. We’ll ask about anything missing.</p><p class="fine">Everything stays in your browser until you share your link.</p></div>
+    <div class="chatwrap">
+      <div class="chat" role="region" aria-label="Trip chat">
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+        <div class="chat-chips" id="chatChips" role="group" aria-label="Quick answers"></div>
+        <form class="chat-in" id="chatForm" autocomplete="off"><label class="sr" for="chatIn">Tell us about your trip</label><textarea id="chatIn" rows="2" placeholder="Where, when, who, where you’re staying, flights, what you love…"></textarea><button class="cmic" id="chatMic" type="button" aria-label="Talk instead of typing" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="csend" type="submit" aria-label="Send">→</button></form>
+      </div>
+      <aside class="chat-sum" id="chatSum" aria-live="polite"></aside>
+    </div>
+    <details class="formalt"><summary>Prefer a form?</summary>
     <form class="builder" id="builder" novalidate>
       <fieldset class="bstep" data-step="1">
         <legend><span>1</span> Where and when</legend>
@@ -146,6 +141,7 @@
         <p class="fine">On your phone: open it, then Share → Add to Home Screen. Anyone with the link opens the same trip.</p>
       </div>
     </form>
+    </details>
   </div>
 </section>
 
@@ -178,5 +174,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script src="app/core.js"></script>
 <script src="site.js"></script>
+<script src="../parse.js"></script>
+<script src="chat.js"></script>
 </body>
 </html>

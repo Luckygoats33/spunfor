@@ -14,6 +14,11 @@ function applyTheme(){
   const r = document.documentElement, t = SF.trip;
   r.style.setProperty("--accent", t.color || "#E3000F");
   r.style.setProperty("--accent-ink", t.ink || "#FFFFFF");
+  /* light accents (lime, gold) are fine as fills but too faint as text: text uses a darker shade on light backgrounds */
+  const hex = (t.color || "#E3000F").replace("#", ""), rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4));
+  const lum = .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
+  const dark = r.getAttribute("data-mode") === "dark" || (r.getAttribute("data-mode") !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  r.style.setProperty("--accent-t", lum > .35 && !dark ? "color-mix(in srgb, " + (t.color || "#E3000F") + " 38%, #111)" : (t.color || "#E3000F"));
   const mode = SF.store.get("sf.mode", "auto");
   if(mode === "auto") r.removeAttribute("data-mode"); else r.setAttribute("data-mode", mode);
 }
@@ -28,28 +33,37 @@ async function boot(){
   SF.onLiveProgress = m => { const b = $("#bootMsg"); if(b) b.textContent = m; };
   try{ SF.city = await SF.loadCity(SF.trip); }catch(e){ $("#main").innerHTML = '<div class="loading"><b>Couldn\'t load ' + esc(SF.trip.cityName || "this city") + '.</b><span>' + esc(e.message || "Check your connection and try again.") + '</span><button class="btn pri" onclick="location.reload()">Try again</button></div>'; return; }
   SF.byId = Object.fromEntries(SF.city.P.map(p => [p.id, p]));
+  if((SF.trip.must || []).length && !SF.tget("mustPlaces", null)){ const bm = $("#bootMsg"); if(bm) bm.textContent = "Finding your must-sees…"; }
+  try{ const added = await Promise.race([SF.resolveMust(), SF.sleep(8000).then(() => false)]); if(added && SF.tget("plan", null)) SF.tset("plan", SF.buildPlan(true)); }catch(e){}
   document.title = (SF.trip.name || SF.city.city.name) + " · spunfor.me";
   const days = SF.tripDays();
   $("#tripName").textContent = SF.city.city.name + (days.length ? " · " + SF.dayLabel(days[0].ymd).replace(/^\w+, /, "") + (days.length > 1 ? "–" + SF.dayLabel(days[days.length - 1].ymd).replace(/^\w+, \w+ /, "") : "") : "");
-  if(!SF.store.get("sf.me." + SF.trip.id, null) && (SF.trip.travelers || []).length > 1) setTimeout(askWho, 600);
+  if(!SF.demo && !SF.store.get("sf.me." + SF.trip.id, null) && (SF.trip.travelers || []).length > 1) setTimeout(function waitWho(){ if($("#scrim")) return setTimeout(waitWho, 800); askWho(); }, SF.store.get("sf.toured", false) ? 600 : 1500);
   window.addEventListener("hashchange", route);
   route(); SF.startWatch();
+  $("#hollaBtn").addEventListener("click", () => SF.openHolla());
+  /* logo always goes Home: closes whatever is open and scrolls to the top */
+  $(".brand").addEventListener("click", e => { e.preventDefault(); SF.closeAsk && SF.closeAsk(); if($("#scrim")) SF.closeSheet(); $$(".banner,.nudge").forEach(b => b.remove()); if(location.hash === "#home" || !location.hash){ S.tab = "home"; SF.render(); $$(".tabs a").forEach(x => x.setAttribute("aria-current", x.dataset.tab === "home" ? "page" : "false")); } else location.hash = "home"; window.scrollTo({top:0, behavior:"smooth"}); });
+  $("#instBtn").addEventListener("click", () => SF.installHelp());
+  if(SF.installed()) $("#instBtn").hidden = true;
+  if(!SF.demo && !SF.store.get("sf.toured", false)) setTimeout(() => { if(!$("#scrim")) SF.tour(0); }, 900);
+  if(!SF.demo) SF.armNudge();
   if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   if(SF.trip.likes === undefined) SF.trip.likes = [];
 }
 
 /* ---------- routing ---------- */
-const TABS = {home:"home", now:"home", explore:"explore", cat:"explore", map:"map", saved:"saved", more:"more"};
+const TABS = {home:"home", now:"home", explore:"explore", cat:"explore", col:"explore", map:"map", saved:"saved", more:"more"};
 function route(){
   const h = location.hash.slice(1) || "home", [tab, arg] = h.split(".");
   S.tab = TABS[tab] ? tab : "home";
-  if(tab === "cat") S.cat = arg; if(tab === "saved" && arg) S.sub = arg;
+  if(tab === "cat") S.cat = arg; if(tab === "col") S.col = arg; if(tab === "saved" && arg) S.sub = arg;
   $$(".tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.tab === TABS[S.tab] ? "page" : "false"));
   SF.render(); window.scrollTo(0, 0);
 }
 SF.render = function(){
   if(!SF.city) return;
-  const V = {home:vHome, now:vNow, explore:vExplore, cat:vCat, map:vMap, saved:vSaved, more:vMore}[S.tab] || vHome;
+  const V = {home:vHome, now:vNow, explore:vExplore, cat:vCat, col:vCol, map:vMap, saved:vSaved, more:vMore}[S.tab] || vHome;
   const keepY = window.scrollY;
   $("#main").innerHTML = '<div class="view">' + V() + '</div>';
   if(S.tab === "map") drawMap();
@@ -63,7 +77,8 @@ const stShort = st => st.state === "open" ? (st.closesSoon ? "Closes " + SF.fmtM
 function row(p, extra){
   const st = SF.statusAt(p), di = SF.distInfo(p), ph = SF.photoOf(p);
   const img = ph ? '<img class="th" src="' + esc(ph.src.replace(/width=\d+/, "width=160")) + '" alt="" loading="lazy" width="56" height="56">' : '<span class="ic" aria-hidden="true">' + (SF.CAT_ICON[p.c[0]] || "•") + '</span>';
-  return '<button class="row" type="button" data-open="' + p.id + '">' + img + '<span class="rb"><span class="rn">' + esc(p.n) + '</span><span class="rs">' + esc([SF.city.CATS[p.c[0]], p.a, di && di.txt].filter(Boolean).join(" · ")) + (extra ? " · " + esc(extra) : "") + '</span></span><span class="st ' + stCls(st) + '">' + esc(stShort(st)) + '</span></button>';
+  const sv = !!SF.saved()[p.id];
+  return '<div class="rowwrap"><button class="row" type="button" data-open="' + p.id + '">' + img + '<span class="rb"><span class="rn">' + esc(p.n) + '</span><span class="rs">' + esc([SF.city.CATS[p.c[0]], p.a, di && di.txt].filter(Boolean).join(" · ")) + (extra ? " · " + esc(extra) : "") + '</span></span><span class="st ' + stCls(st) + '">' + esc(stShort(st)) + '</span></button><button class="heart" type="button" data-save="' + p.id + '" aria-pressed="' + sv + '" aria-label="' + (sv ? "Unsave " : "Save ") + esc(p.n) + '">' + (sv ? "♥" : "♡") + '</button></div>';
 }
 const byDist = (a, b) => { const x = SF.distInfo(a), y = SF.distInfo(b); return (x ? x.m : 1e9) - (y ? y.m : 1e9); };
 const greet = () => { const m = SF.cityNow().mins / 60; return m < 5 ? "Still up" : m < 12 ? "Good morning" : m < 17 ? "Good afternoon" : m < 22 ? "Good evening" : "Late night"; };
@@ -75,6 +90,7 @@ function vHome(){
   let h = '<section class="hero"><p class="k">' + esc(SF.city.city.name) + (SF.city.city.state ? ", " + esc(SF.city.city.state) : "") + (SF.city.live ? ' <span class="tag">live beta</span>' : "") + '</p>'
     + '<h1>' + greet() + (names() ? ',<br><em>' + esc(names()) + '.</em>' : '.') + '</h1>'
     + '<div class="meta"><span>Local time<b>' + esc(SF.DOWL[N.dow].slice(0, 3) + " " + SF.fmtM(N.mins)) + '</b></span>' + (ts ? '<span>Trip<b>' + esc(ts.txt) + '</b></span>' : '') + '<span id="wxNow">Weather<b>…</b></span></div></section>';
+  h += '<section class="quip"><span class="qb" aria-hidden="true">' + esc((SF.trip.bot || "Spun")[0]) + '</span><p><q>' + esc(SF.quip()) + '</q><span class="muted small"> · ' + esc(SF.trip.bot || "Spun") + '</span></p><button class="btn" type="button" data-act="quip">Another one</button></section>';
   /* next up */
   const plan = SF.tripDays().length ? SF.plan() : null;
   if(ts && ts.during){ const nx = SF.nextUp(); if(nx) h += '<section class="card acc"><span class="ck">Next up · ' + esc(nx.when) + '</span><h3>' + esc(nx.label) + '</h3>' + (nx.place ? '<div class="btns"><a class="btn pri" href="' + esc(SF.dirUrl(nx.place)) + '" target="_blank" rel="noopener">Directions</a><button class="btn" type="button" data-open="' + nx.place.id + '">Details</button></div>' : '') + '</section>'; }
@@ -86,11 +102,21 @@ function vHome(){
   h += '<section class="sec"><div class="sec-h"><h2>Open right now</h2><a href="#now">See all</a></div>' + (open.length ? '<div class="list">' + open.map(p => row(p)).join("") + '</div>' : '<p class="empty">Nothing with listed hours is open right now. <a href="#explore">Browse everything</a>.</p>') + '</section>';
   /* tiles */
   const cats = Object.keys(SF.city.CATS).filter(c => !(SF.trip.skip || []).includes(c));
+  const ts2 = SF.tripStatus(), got = SF.stampsFor(SF.visited()).length;
   h += '<section class="sec"><div class="sec-h"><h2>Jump to</h2></div><div class="tiles">'
-    + '<a class="tile" href="#saved.plan"><span class="ti" aria-hidden="true">◷</span><b>Trip plan</b><span>' + (SF.tripDays().length ? SF.tripDays().length + " days, built for you" : "Add dates to get a plan") + '</span></a>'
+    + '<a class="tile" href="#saved.plan"><span class="ti" aria-hidden="true">◷</span><b>' + (ts2 && ts2.during ? "Today\'s plan" : "Trip plan") + '</b><span>' + (ts2 && ts2.before ? "Starts " + esc(SF.dayLabel(SF.trip.arrive)) : SF.tripDays().length ? SF.tripDays().length + " days, built for you" : "Add dates to get a plan") + '</span></a>'
     + '<a class="tile" href="#map"><span class="ti" aria-hidden="true">◎</span><b>Near me</b><span>Within a 15-min walk</span></a>'
-    + cats.slice(0, 6).map(c => '<a class="tile" href="#cat.' + c + '"><span class="ti" aria-hidden="true">' + (SF.CAT_ICON[c] || "•") + '</span><b>' + esc(SF.city.CATS[c]) + '</b><span>' + SF.city.P.filter(p => p.c.includes(c)).length + ' places</span></a>').join("")
+    + '<a class="tile" href="#col.tonight"><span class="ti" aria-hidden="true">☾</span><b>Tonight</b><span>' + SF.colPlaces("tonight").length + ' open at 9 pm</span></a>'
+    + '<a class="tile" href="#col.gems"><span class="ti" aria-hidden="true">◆</span><b>Hidden gems</b><span>Off the obvious list</span></a>'
+    + '<a class="tile" href="#saved.passport"><span class="ti" aria-hidden="true">✦</span><b>Passport</b><span>' + got + ' of ' + SF.STAMPS.length + ' stamps</span></a>'
+    + '<button class="tile" type="button" data-act="holla"><span class="ti" aria-hidden="true">●</span><b>Holla Holla</b><span>Best picks this minute</span></button>'
+    + cats.slice(0, 2).map(c => '<a class="tile" href="#cat.' + c + '"><span class="ti" aria-hidden="true">' + (SF.CAT_ICON[c] || "•") + '</span><b>' + esc(SF.city.CATS[c]) + '</b><span>' + SF.city.P.filter(p => p.c.includes(c)).length + ' places</span></a>').join("")
     + '</div></section>';
+  /* what's your vibe? */
+  S.vibe = S.vibe || "";
+  h += '<section class="sec"><div class="sec-h"><h2>What\'s your vibe?</h2></div><div class="chips" role="group" aria-label="Pick a vibe">' + SF.COLLECTIONS.filter(c => SF.colPlaces(c.k).length).map(c => '<button class="chip" type="button" data-vibe="' + c.k + '" aria-pressed="' + (S.vibe === c.k) + '">' + esc(c.i + " " + c.t) + '</button>').join("") + '</div>'
+    + (S.vibe ? (() => { const ps = SF.colPlaces(S.vibe).sort((a, b) => { const sa = SF.statusAt(a).state === "open" ? 0 : 1, sb = SF.statusAt(b).state === "open" ? 0 : 1; return sa - sb || byDist(a, b); }); return '<div class="list">' + ps.slice(0, 5).map(p => row(p)).join("") + '</div>' + (ps.length > 5 ? '<a class="linky" href="#col.' + S.vibe + '">All ' + ps.length + ' →</a>' : ''); })() : '<p class="muted small">Tap one and the picks change.</p>') + '</section>';
+  h += SF.renderSurprise();
   h += '<section class="sec"><div class="sec-h"><h2>7-day weather</h2></div><div class="wx" id="wxDays"><div>Loading…</div></div></section>';
   h += '<section class="card"><h3>Traveling with someone?</h3><p class="muted small">Send them this app. They get the same trip and plan on their phone.</p><div class="btns"><button class="btn pri" type="button" data-act="shareTrip">Send the app</button><button class="btn" type="button" data-act="shareRecap">Share a recap</button></div></section>';
   return h;
@@ -131,11 +157,17 @@ function vExplore(){
   let h = '<section class="hero"><p class="k">Explore</p><h1>' + esc(SF.city.city.name) + ',<br><em>sorted.</em></h1></section>'
     + '<div class="search"><label class="sr" for="exQ">Search every place</label><input id="exQ" type="search" placeholder="Search ' + SF.city.P.length + ' places" value="' + esc(S.q) + '"></div>';
   if(q){ const ps = SF.city.P.filter(p => SF.lc(p.n + " " + (p.note || "") + " " + (p.a || "") + " " + p.c.map(c => SF.city.CATS[c]).join(" ")).includes(q)).sort(byDist); return h + (ps.length ? '<div class="list">' + ps.map(p => row(p)).join("") + '</div>' : '<p class="empty">Nothing in the guide matches "' + esc(S.q) + '". <button class="btn" type="button" data-askfor="' + esc(S.q) + '">Ask to find it nearby</button></p>'); }
+  h += '<div class="sec-h"><h2>Collections</h2></div><div class="colstrip">' + SF.COLLECTIONS.map(c => { const n = SF.colPlaces(c.k).length; return n ? '<a class="colcard" href="#col.' + c.k + '"><span class="ti" aria-hidden="true">' + c.i + '</span><b>' + esc(c.t) + '</b><span>' + n + ' places</span></a>' : ""; }).join("") + '</div><div class="sec-h"><h2>Categories</h2></div>';
   h += '<div class="cats">' + cats.map(c => {
     const ps = SF.city.P.filter(p => p.c.includes(c)), withPh = ps.find(p => SF.photoOf(p)), ph = withPh && SF.photoOf(withPh);
     return '<a class="cat' + (ph ? "" : " noimg") + '" href="#cat.' + c + '"' + (ph ? ' style="background-image:url(\'' + esc(ph.src.replace(/width=\d+/, "width=480")) + '\')"' : "") + '><b>' + esc(SF.city.CATS[c]) + '</b><span>' + ps.length + ' places' + ((SF.trip.likes || []).includes(c) ? " · you love this" : (SF.trip.skip || []).includes(c) ? " · you skip this" : "") + '</span></a>';
   }).join("") + '</div>';
   return h + (SF.city.live ? '<p class="src">Built live from OpenStreetMap. Photos and notes arrive when ' + esc(SF.city.city.name) + ' is fully curated.</p>' : '<p class="src">Photos from Wikimedia Commons, credited on each place.</p>');
+}
+function vCol(){
+  const c = SF.COLLECTIONS.find(x => x.k === S.col) || SF.COLLECTIONS[0];
+  const ps = SF.colPlaces(c.k).sort((a, b) => { const sa = SF.statusAt(a).state === "open" ? 0 : 1, sb = SF.statusAt(b).state === "open" ? 0 : 1; return sa - sb || byDist(a, b); });
+  return '<a class="linky" href="#explore">← Explore</a><section class="hero"><p class="k">Collection · ' + ps.length + ' places</p><h1>' + esc(c.t) + '</h1><p class="muted">' + esc(c.s) + '</p></section>' + (ps.length ? '<div class="list">' + ps.map(p => row(p)).join("") + '</div>' : '<p class="empty">Nothing fits this one here yet.</p>');
 }
 function vCat(){
   const c = S.cat, label = SF.city.CATS[c] || "Places";
@@ -150,14 +182,16 @@ function vMap(){
   return '<section class="hero"><p class="k">Map · from ' + esc(SF.origin().from) + '</p><h1>What\'s within<br><em>' + S.radius + ' minutes.</em></h1></section>'
     + '<div class="maptools"><label class="sr" for="mRad">Walking time</label><select id="mRad">' + [5, 10, 15, 20, 30].map(m => '<option value="' + m + '"' + (S.radius === m ? " selected" : "") + '>' + m + ' min walk</option>').join("") + '<option value="0"' + (!S.radius ? " selected" : "") + '>Show everything</option></select>'
     + '<label class="sr" for="mCat">Type</label><select id="mCat"><option value="all">All types</option>' + cats.map(c => '<option value="' + c + '"' + (S.f === c ? " selected" : "") + '>' + esc(SF.city.CATS[c]) + '</option>').join("") + '</select>'
-    + '<button class="chip" type="button" id="mOpen" aria-pressed="' + S.mapOpen + '">Open now</button><button class="chip" type="button" id="mLocate">Find me</button></div>'
+    + '<button class="chip" type="button" id="mOpen" aria-pressed="' + S.mapOpen + '">Open now</button><button class="chip" type="button" id="mSaved" aria-pressed="' + !!S.mapSaved + '">Saved</button><button class="chip" type="button" id="mLocate">Find me</button></div>'
+    + (SF.tripDays().length ? '<div class="chips" role="group" aria-label="Show a day of the plan"><button class="chip" type="button" data-mapday="0" aria-pressed="' + !S.mapDay + '">Everything</button>' + SF.tripDays().map(d => '<button class="chip" type="button" data-mapday="' + d.n + '" aria-pressed="' + (S.mapDay === d.n) + '">Day ' + d.n + ' route</button>').join("") + '</div>' : '')
     + '<div class="mapwrap"><div class="lmap" id="lmap" role="region" aria-label="Map of places"></div></div>'
     + '<div class="legend" aria-label="Map key">' + cats.map(c => '<span><i style="background:' + (CAT_COLOR[c] || "#111") + '"></i>' + esc(SF.city.CATS[c]) + '</span>').join("") + '</div>'
     + '<section class="sec"><div class="sec-h"><h2 id="mCount">In range</h2></div><div class="list" id="mList"></div></section>';
 }
 function mapPlaces(){
   const o = SF.origin(), rM = S.radius ? S.radius * 80 / 1.25 : Infinity;
-  return SF.city.P.filter(p => SF.coordOf(p) && (S.f === "all" || p.c.includes(S.f)) && (!S.mapOpen || SF.statusAt(p).state === "open") && SF.meters(o.pt, SF.coordOf(p)) <= rM).sort(byDist);
+  const sv = SF.saved();
+  return SF.city.P.filter(p => SF.coordOf(p) && (S.f === "all" || p.c.includes(S.f)) && (!S.mapOpen || SF.statusAt(p).state === "open") && (!S.mapSaved || sv[p.id]) && SF.meters(o.pt, SF.coordOf(p)) <= rM).sort(byDist);
 }
 function drawMap(){
   if(!window.L){ setTimeout(drawMap, 200); return; }
@@ -172,6 +206,19 @@ function drawMap(){
   if(S.radius) L.circle(o.pt, {radius:S.radius * 80 / 1.25, color:getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#E3000F", weight:2, dashArray:"6 6", fill:false}).addTo(LAYER);
   const h = SF.trip.hotel; if(h && h.lat) L.marker([h.lat, h.lon], {icon:L.divIcon({className:"", html:'<div class="mhotel" title="Hotel">H</div>', iconSize:[22, 22]}), title:h.name || "Hotel"}).addTo(LAYER);
   if(SF.here) L.marker([SF.here.lat, SF.here.lon], {icon:L.divIcon({className:"", html:'<div class="mhere"></div>', iconSize:[18, 18]}), title:"You"}).addTo(LAYER);
+  /* a day of the plan: numbered stops in order, route line, leg times */
+  const day = S.mapDay && SF.tripDays().length ? SF.plan().days.find(x => x.n === S.mapDay) : null;
+  if(day){
+    const stops = day.items.filter(i => i.p && SF.byId[i.p[0]] && SF.coordOf(SF.byId[i.p[0]])).map(i => ({it:i, p:SF.byId[i.p[0]]}));
+    const pts = stops.map(s => SF.coordOf(s.p)); if(h && h.lat) pts.unshift([h.lat, h.lon]);
+    if(pts.length > 1) L.polyline(pts, {color:getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#E3000F", weight:4, opacity:.85}).addTo(LAYER);
+    stops.forEach((s, i) => { const m = L.marker(SF.coordOf(s.p), {icon:L.divIcon({className:"", html:'<div class="mnum">' + (i + 1) + '</div>', iconSize:[28, 28]}), title:(i + 1) + ". " + s.p.n, keyboard:true}); m.on("click", () => SF.openPlace(s.p.id)); m.bindTooltip((i + 1) + ". " + s.p.n + " · " + SF.fmtM(SF.toM(s.it.t))); m.addTo(LAYER); });
+    if(pts.length) LMAP.fitBounds(L.latLngBounds(pts).pad(.15));
+    let prevPt = h && h.lat ? [h.lat, h.lon] : null;
+    $("#mCount").textContent = "Day " + day.n + " route · " + stops.length + " stops";
+    $("#mList").innerHTML = stops.map((s, i) => { const leg = prevPt ? SF.travel(SF.meters(prevPt, SF.coordOf(s.p))) : null; prevPt = SF.coordOf(s.p); return '<div class="rowwrap"><button class="row" type="button" data-open="' + s.p.id + '"><span class="ic" aria-hidden="true">' + (i + 1) + '</span><span class="rb"><span class="rn">' + esc(s.p.n) + '</span><span class="rs">' + esc(SF.fmtM(SF.toM(s.it.t)) + (leg ? " · " + leg.txt + " from " + (i ? "the last stop" : "the hotel") : "")) + '</span></span><span></span></button><a class="heart" href="' + esc(SF.dirUrl(s.p, leg && leg.mode === "car" ? "driving" : "walking")) + '" target="_blank" rel="noopener" aria-label="Directions to ' + esc(s.p.n) + '">➜</a></div>'; }).join("") || '<p class="empty">No mapped stops that day.</p>';
+    return;
+  }
   ps.forEach(p => { const st = SF.statusAt(p); const m = L.marker(SF.coordOf(p), {icon:L.divIcon({className:"", html:'<div class="mpin' + (st.state === "open" ? " open" : "") + '" style="--pc:' + (CAT_COLOR[p.c[0]] || "#111") + '"></div>', iconSize:[16, 16]}), title:p.n, keyboard:true}); m.on("click", () => SF.openPlace(p.id)); m.bindTooltip(p.n); m.addTo(LAYER); });
   if(ps.length && !S.radius){ LMAP.fitBounds(L.latLngBounds(ps.map(p => SF.coordOf(p))).pad(.1)); }
   else if(S.radius){ LMAP.fitBounds(L.latLng(o.pt).toBounds(S.radius * 80 / 1.25 * 2.2)); }
@@ -189,21 +236,38 @@ function vSaved(){
 function vPlan(){
   if(!SF.tripDays().length) return '<p class="empty">Add trip dates to get a day-by-day plan.</p>';
   const plan = SF.plan(), ts = SF.tripStatus();
-  let h = '<p class="muted small">Built from what you love' + ((SF.trip.flights || []).length ? ", timed around your flights" : "") + ' and opening hours. Swap (↻) or remove (×) anything; add places from their details.</p>';
+  let h = '<p class="muted small">Built from what you love' + ((SF.trip.flights || []).length ? ", timed around your flights" : "") + (SF.trip.pace ? ", at a " + esc(SF.trip.pace) + " pace" : "") + ' and listed opening hours. Reorder (↑↓), lock (🔒), swap (↻) or remove (×) stops. Locked stops survive a rebuild.</p>';
   plan.days.forEach(d => {
-    h += '<div class="day"><div class="day-h"><b>Day ' + d.n + '</b><span class="muted small">' + esc(SF.dayLabel(d.ymd, true)) + (ts && ts.during && ts.day === d.n ? " · today" : "") + '</span></div>';
+    const dow = SF.ymdDow(d.ymd);
+    h += '<div class="day" id="day-' + d.n + '"><div class="day-h"><b>Day ' + d.n + '</b><span class="muted small">' + esc(SF.dayLabel(d.ymd, true)) + (ts && ts.during && ts.day === d.n ? " · today" : "") + ' · <a class="linky" href="#map" data-mapday="' + d.n + '">Show on map</a></span></div>'
+      + '<div class="planb" data-planb="' + d.n + '"></div>';
     if(!d.items.length) h += '<p class="empty">Open day. Add places from Explore or the map.</p>';
-    let prev = null;
+    let prev = null, prevIt = null;
+    const movable = d.items.filter(i => !i.fixed);
     d.items.forEach(it => {
       const p = it.p && SF.byId[it.p[0]];
-      if(prev && p && SF.coordOf(prev) && SF.coordOf(p)){ const tr = SF.travel(SF.meters(SF.coordOf(prev), SF.coordOf(p))); h += '<div class="conn">' + esc(tr.txt) + '</div>'; }
-      h += '<div class="item' + (it.fixed ? " fixed" : "") + '"><span class="t">' + esc(SF.fmtM(SF.toM(it.t))) + '</span><span class="what">' + (p ? '<button type="button" data-open="' + p.id + '">' + esc(it.h) + '</button><span class="rs">' + esc([SF.city.CATS[p.c[0]], p.a].filter(Boolean).join(" · ")) + '</span>' : '<b>' + esc(it.h) + '</b>') + '</span>'
-        + (it.fixed ? '<span></span>' : '<span class="acts">' + (p ? '<button type="button" data-swap="' + d.n + '|' + it.k + '" aria-label="Swap ' + esc(it.h) + ' for something similar">↻</button>' : '') + '<button type="button" data-rm="' + d.n + '|' + it.k + '" aria-label="Remove ' + esc(it.h) + '">×</button></span>') + '</div>';
-      if(p) prev = p;
+      let tight = "";
+      if(prev && p && SF.coordOf(prev) && SF.coordOf(p)){
+        const tr = SF.travel(SF.meters(SF.coordOf(prev), SF.coordOf(p)));
+        const gap = SF.toM(it.t) - SF.toM(prevIt.t);
+        tight = gap - tr.mins < 30 ? " · tight: " + gap + " min between stops" : "";
+        h += '<div class="conn' + (tight ? " warn" : "") + '">' + esc(tr.txt + tight) + '</div>';
+      }
+      const iss = p ? SF.itemIssue(p, dow, SF.toM(it.t)) : "";
+      const mi = movable.indexOf(it);
+      h += '<div class="item' + (it.fixed ? " fixed" : "") + (it.lock ? " locked" : "") + '"><span class="t">' + esc(SF.fmtM(SF.toM(it.t))) + '</span><span class="what">' + (p ? '<button type="button" data-open="' + p.id + '">' + esc(it.h) + '</button><span class="rs">' + esc([SF.city.CATS[p.c[0]], p.a].filter(Boolean).join(" · ")) + '</span>' : '<b>' + esc(it.h) + '</b>') + (iss ? '<span class="iss ' + (/closed/.test(iss) ? "bad" : "") + '">' + esc(iss) + '</span>' : '') + '</span>'
+        + (it.fixed ? '<span></span>' : '<span class="acts">'
+          + '<button type="button" data-mv="' + d.n + '|' + it.k + '|-1" aria-label="Move ' + esc(it.h) + ' earlier"' + (mi <= 0 ? " disabled" : "") + '>↑</button>'
+          + '<button type="button" data-mv="' + d.n + '|' + it.k + '|1" aria-label="Move ' + esc(it.h) + ' later"' + (mi < 0 || mi >= movable.length - 1 ? " disabled" : "") + '>↓</button>'
+          + '<button type="button" data-lock="' + d.n + '|' + it.k + '" aria-pressed="' + !!it.lock + '" aria-label="' + (it.lock ? "Unlock " : "Lock ") + esc(it.h) + '">' + (it.lock ? "🔒" : "🔓") + '</button>'
+          + (p && !it.lock ? '<button type="button" data-swap="' + d.n + '|' + it.k + '" aria-label="Swap ' + esc(it.h) + ' for something similar">↻</button>' : '')
+          + (!it.lock ? '<button type="button" data-rm="' + d.n + '|' + it.k + '" aria-label="Remove ' + esc(it.h) + '">×</button>' : '') + '</span>') + '</div>';
+      if(p){ prev = p; prevIt = it; }
     });
     h += '</div>';
   });
-  return h + '<div class="btns"><button class="btn" type="button" data-act="rebuild">Rebuild the plan</button></div>';
+  setTimeout(SF.fillPlanB, 0);
+  return h + '<div class="btns"><button class="btn" type="button" data-act="rebuild">Rebuild unlocked stops</button></div>';
 }
 function vSavedList(){
   const s = SF.saved(), ids = Object.keys(s).filter(id => SF.byId[id]).sort((a, b) => s[b].t - s[a].t);
@@ -239,13 +303,14 @@ function vMore(){
   const photos = Object.entries(SF.city.PHOTOS || {});
   return '<section class="hero"><p class="k">More</p><h1>Settings<br><em>&amp; help.</em></h1></section>'
     + '<section class="sec"><div class="sec-h"><h2>Your trip</h2></div><dl class="kv"><dt>City</dt><dd>' + esc(SF.city.city.name) + (SF.city.live ? " (live beta)" : "") + '</dd><dt>Dates</dt><dd>' + (SF.tripDays().length ? esc(SF.dayLabel(t.arrive, true)) + (t.depart && t.depart !== t.arrive ? " to " + esc(SF.dayLabel(t.depart, true)) : "") : "Not set") + '</dd><dt>Travelers</dt><dd>' + esc(names() || "Just you") + '</dd><dt>Hotel</dt><dd>' + esc(t.hotel ? (t.hotel.name + (t.hotel.ad ? ", " + t.hotel.ad : "")) : "Not set") + '</dd><dt>This phone</dt><dd>' + esc(SF.me()) + ((t.travelers || []).length > 1 ? ' <button class="linky" type="button" data-act="who" style="border:0;background:none;cursor:pointer;padding:0 0 0 6px">change</button>' : "") + '</dd></dl>'
-    + '<div class="btns"><button class="btn pri" type="button" data-act="shareTrip">Send this app to someone</button><a class="btn" href="../#build">Plan another trip</a></div></section>'
+    + '<div class="btns"><button class="btn pri" type="button" data-act="shareTrip">Send to my travel partner</button><button class="btn" type="button" data-act="sharePublic">Share without hotel &amp; flights</button><button class="btn" type="button" data-act="install">Add to home screen</button><button class="btn" type="button" data-act="tour">Replay the tour</button><a class="btn" href="../#build">Plan another trip</a></div></section>'
+    + '<section class="sec"><div class="sec-h"><h2>Back up this trip</h2></div><p class="muted small">Your trip and saves live in this phone\'s browser. Clearing browser data erases them, so keep a backup. The backup link holds your hotel and flights: only send it to people you trust.</p><div class="btns"><button class="btn" type="button" data-act="copyLink">Copy backup link</button><button class="btn" type="button" data-act="download">Download backup file</button><label class="btn" for="restoreIn">Restore from file</label><input id="restoreIn" type="file" accept="application/json,.json" class="sr"></div></section>'
     + '<section class="sec"><div class="sec-h"><h2>Look</h2></div><div class="chips" role="radiogroup" aria-label="Light or dark">' + [["auto", "Match phone"], ["light", "Light"], ["dark", "Dark"]].map(([k, l]) => '<button class="chip" type="button" role="radio" data-mode="' + k + '" aria-checked="' + (mode === k) + '" aria-pressed="' + (mode === k) + '">' + l + '</button>').join("") + '</div>'
     + '<div class="chips" role="radiogroup" aria-label="Accent color">' + ["#E3000F", "#111111", "#1D4ED8", "#0B7A3E", "#C8F31D", "#DB2777", "#D9A441"].map(c => '<button class="swatch" type="button" role="radio" data-color="' + c + '" aria-checked="' + (SF.trip.color === c) + '" aria-label="Accent ' + c + '" style="background:' + c + '"></button>').join("") + '</div></section>'
     + '<section class="sec"><div class="sec-h"><h2>How it works</h2></div><div class="list">'
     + [["Open now", "The button at the top shows only what's open this minute, in " + SF.city.city.name + " time."], ["Trip", "Your day-by-day plan, saves, journal, passport and checklist."], ["Ask", "Ask anything. If it isn't in the guide, it finds real places nearby with hours and directions."], ["Auto check-in", "Turn it on in Trip → Journal. GPS works only while the app is open."], ["Add to home screen", "iPhone: Share → Add to Home Screen. Android: menu → Install app."]].map(([a, b]) => '<div class="row" style="cursor:default;grid-template-columns:1fr"><span class="rb"><span class="rn">' + a + '</span><span class="rs" style="white-space:normal">' + b + '</span></span></div>').join("") + '</div></section>'
     + '<section class="sos"><h3>Emergency</h3><p class="small">In an emergency call 911. For a mental health crisis, call or text 988.</p><div class="btns"><a class="btn" href="tel:911">Call 911</a><a class="btn" href="tel:988">Call 988</a><button class="btn" type="button" data-act="sendLoc">Send my location</button></div></section>'
-    + '<section class="sec"><div class="sec-h"><h2>Sources</h2></div><p class="small muted">' + esc(SF.city.sources.join(" · ")) + '. Hours and details can be wrong; check before you go.</p>'
+    + '<section class="sec"><div class="sec-h"><h2>Sources</h2></div><p class="small muted">' + esc(SF.city.sources.join(" · ")) + '. Place data gathered ' + esc(SF.city.built ? new Date(SF.city.built).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "recently") + (SF.city.live ? " (built live on this phone)" : "") + '. "Open" means the listed hours say so; nobody has confirmed it with the venue. Check before you go.</p>'
     + (photos.length ? '<details><summary class="linky" style="cursor:pointer">Photo credits (' + photos.length + ')</summary><div class="credits">' + photos.map(([id, p]) => '<span>' + esc((SF.byId[id] || {}).n || id) + ': <a href="' + esc(p.page) + '" target="_blank" rel="noopener">' + esc(p.credit.replace(/^Photo: /, "")) + '</a></span>').join("") + '</div></details>' : '') + '</section>'
     + '<section class="sec"><button class="btn" type="button" data-act="reset">Reset this phone\'s saves for this trip</button></section>';
 }
@@ -255,7 +320,7 @@ SF.openPlace = function(id){
   const p = SF.byId[id]; if(!p) return;
   const st = SF.statusAt(p), di = SF.distInfo(p), ph = SF.photoOf(p), rows = SF.hoursRows(p), N = SF.cityNow(), c = SF.coordOf(p);
   const saved = !!SF.saved()[id], vis = !!SF.visited()[id], days = SF.tripDays();
-  const src = (SF.city.HRS[id] || {}).src;
+  const src = (SF.city.HRS[id] || {}).src, gathered = SF.city.built ? new Date(SF.city.built).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
   const html = '<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shT">'
     + (ph ? '<img class="ph" src="' + esc(ph.src) + '" alt="' + esc(p.n) + '" width="640" height="360"><p class="cr"><a href="' + esc(ph.page) + '" target="_blank" rel="noopener">' + esc(ph.credit) + '</a></p>' : '')
     + '<div class="sheet-in"><div class="sheet-h"><div><p class="k">' + esc(p.c.map(x => SF.city.CATS[x]).filter(Boolean).join(" · ")) + '</p><h2 id="shT">' + esc(p.n) + '</h2>' + (p.a ? '<p class="muted small">' + esc(p.a) + '</p>' : '') + '</div><button class="x" type="button" data-close aria-label="Close">×</button></div>'
@@ -264,7 +329,7 @@ SF.openPlace = function(id){
     + '<div class="btns"><button class="btn" type="button" data-save="' + id + '" aria-pressed="' + saved + '">' + (saved ? "Saved ✓" : "Save") + '</button><button class="btn" type="button" data-visit="' + id + '" aria-pressed="' + vis + '">' + (vis ? "Visited ✓" : "Mark visited") + '</button><button class="btn" type="button" data-shareplace="' + id + '">Share</button></div>'
     + (days.length ? '<div class="dayline" role="group" aria-label="Add to a day"><span class="small muted" style="align-self:center">Add to</span>' + days.map(d => '<button class="chip" type="button" data-addday="' + id + '|' + d.n + '">Day ' + d.n + '</button>').join("") + '</div>' : '')
     + (p.note ? '<p>' + esc(p.note.replace(/Hours: [^.]*\.?/, "").trim()) + '</p>' : '')
-    + (rows ? '<table class="hrs"><caption class="sr">Opening hours</caption>' + rows.map(([d, t, i]) => '<tr' + (i === N.dow ? ' class="today"' : '') + '><td>' + d + '</td><td>' + esc(t) + '</td></tr>').join("") + '</table><p class="src">Hours from ' + esc(src === "osm" ? "OpenStreetMap" : (src || "map data")) + '. Check before you go.</p>' : (p.hoursRaw ? '<p class="small">Listed hours: ' + esc(p.hoursRaw) + '</p>' : '<p class="small muted">No hours listed. Call ahead.</p>'))
+    + (rows ? '<table class="hrs"><caption class="sr">Opening hours</caption>' + rows.map(([d, t, i]) => '<tr' + (i === N.dow ? ' class="today"' : '') + '><td>' + d + '</td><td>' + esc(t) + '</td></tr>').join("") + '</table><p class="src">Listed hours from ' + esc(src === "osm" ? "OpenStreetMap" : (src || "map data")) + (gathered ? ", gathered " + esc(gathered) : "") + '. Not confirmed with the venue; check before you go.</p>' : (p.hoursRaw ? '<p class="small">Listed hours: ' + esc(p.hoursRaw) + '</p>' : '<p class="small muted">No hours listed. Call ahead.</p>'))
     + '<dl class="kv">' + (p.ad ? '<dt>Address</dt><dd>' + esc(p.ad) + '</dd>' : '') + (p.ph ? '<dt>Phone</dt><dd><a href="tel:' + esc(p.ph.replace(/[^\d+]/g, "")) + '">' + esc(p.ph) + '</a></dd>' : '') + (p.url ? '<dt>Website</dt><dd><a href="' + esc(/^https?:/.test(p.url) ? p.url : "https://" + p.url) + '" target="_blank" rel="noopener">' + esc(p.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) + '</a></dd>' : '') + (p.wp_url ? '<dt>More</dt><dd><a href="' + esc(p.wp_url) + '" target="_blank" rel="noopener">Wikipedia</a></dd>' : '') + '</dl>'
     + '</div></div></div>';
   $("#sheetRoot").innerHTML = html;
@@ -299,6 +364,13 @@ function askWho(){
 
 /* ---------- events ---------- */
 document.addEventListener("click", e => {
+  const sx = e.target.closest("[data-sh],[data-sm],[data-sv],[data-surprise],[data-surplan],[data-vibe]");
+  if(sx){ const d2 = sx.dataset; S.sur = S.sur || {h:2, mode:"walk", vibe:"any"};
+    if(d2.sh){ S.sur.h = +d2.sh; S.sur.ran = false; } if(d2.sm){ S.sur.mode = d2.sm; S.sur.ran = false; } if(d2.sv){ S.sur.vibe = d2.sv; S.sur.ran = false; }
+    if(d2.surprise !== undefined){ S.sur.result = SF.surprise(S.sur.h, S.sur.mode, S.sur.vibe); S.sur.ran = true; }
+    if(d2.surplan !== undefined){ const ts = SF.tripStatus(), n = ts && ts.during ? ts.day : 1; (S.sur.result || []).forEach(x => SF.addToDay(x.p.id, n)); SF.toast("Added to day " + n + "."); }
+    if(d2.vibe){ S.vibe = S.vibe === d2.vibe ? "" : d2.vibe; }
+    SF.render(); return; }
   const t = e.target.closest("[data-open],[data-f],[data-sub],[data-save],[data-visit],[data-addday],[data-swap],[data-rm],[data-rate],[data-check],[data-act],[data-mode],[data-color],[data-shareplace],[data-askfor]");
   if(!t) return;
   const d = t.dataset;
@@ -316,11 +388,18 @@ document.addEventListener("click", e => {
   if(d.color){ SF.trip.color = d.color; SF.trip.ink = ["#C8F31D", "#D9A441"].includes(d.color) ? "#111111" : "#FFFFFF"; SF.store.set("sf.lastTrip", SF.trip); applyTheme(); SF.render(); return; }
   if(d.shareplace){ const p = SF.byId[d.shareplace]; SF.shareText(p.n, p.n + (p.ad ? ", " + p.ad : "") + "\n" + SF.dirUrl(p)); return; }
   if(d.askfor){ SF.openAsk && SF.openAsk("where can I find " + d.askfor); return; }
+  if(d.act === "holla"){ SF.openHolla(); return; }
+  if(d.act === "quip"){ const q = document.querySelector(".quip q"); if(q) q.textContent = SF.quip(); return; }
+  if(d.act === "install"){ SF.installHelp(); return; }
+  if(d.act === "sharePublic"){ SF.shareTripPublic(); return; }
+  if(d.act === "download"){ SF.downloadBackup(); return; }
+  if(d.act === "copyLink"){ (navigator.clipboard ? navigator.clipboard.writeText(SF.shareLink(SF.trip)) : Promise.reject()).then(() => SF.toast("Backup link copied. Keep it private."), () => SF.toast("Couldn't copy here.")); return; }
+  if(d.act === "tour"){ SF.tour(0); return; }
   if(d.act === "shareTrip") SF.shareTrip();
   else if(d.act === "shareRecap") SF.shareRecap();
   else if(d.act === "sendLoc") SF.sendLocation();
   else if(d.act === "auto") SF.setAuto(!SF.autoOn());
-  else if(d.act === "rebuild"){ SF.tset("plan", SF.buildPlan()); SF.toast("Fresh plan, built from what's open."); SF.render(); }
+  else if(d.act === "rebuild"){ SF.tset("plan", SF.buildPlan(true)); SF.toast("Rebuilt. Locked stops stayed put."); SF.render(); }
   else if(d.act === "who") askWho();
   else if(d.act === "reset"){ if(confirm("Clear this phone's saves, journal and checklist for this trip?")){ ["saved", "visited", "checks", "plan", "myChecks"].forEach(k => SF.store.del("sf." + SF.trip.id + "." + k)); SF.toast("Cleared."); SF.render(); } }
 });
@@ -329,6 +408,7 @@ document.addEventListener("input", e => {
   if(e.target.dataset.note) SF.note(e.target.dataset.note, e.target.value);
 });
 document.addEventListener("change", e => {
+  if(e.target.id === "restoreIn" && e.target.files[0]){ SF.restoreBackup(e.target.files[0]); return; }
   if(e.target.id === "mRad"){ S.radius = +e.target.value; SF.render(); }
   if(e.target.id === "mCat"){ S.f = e.target.value; SF.render(); }
 });
@@ -338,6 +418,16 @@ document.addEventListener("submit", e => {
 document.addEventListener("click", e => {
   if(e.target.id === "mOpen"){ S.mapOpen = !S.mapOpen; SF.render(); }
   if(e.target.id === "mLocate"){ if(!navigator.geolocation) return SF.toast("Location isn't available here."); navigator.geolocation.getCurrentPosition(pos => { SF.here = {lat:pos.coords.latitude, lon:pos.coords.longitude, acc:pos.coords.accuracy, ts:Date.now()}; if(SF.meters([SF.here.lat, SF.here.lon], SF.city.city.center) > 60000) SF.toast("You're not in " + SF.city.city.name + " yet, so the map starts from " + SF.origin().from + "."); SF.render(); }, () => SF.toast("Couldn't get your location."), {enableHighAccuracy:true, timeout:12000}); }
+});
+/* plan editing, map day routes, saved filter, plan B */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-mv],[data-lock],[data-mapday],#mSaved,[data-planbswap]"); if(!t) return;
+  const d = t.dataset;
+  if(d.mv){ const [n, k, dir] = d.mv.split("|"); SF.moveItem(+n, k, +dir); SF.render(); return; }
+  if(d.lock){ const [n, k] = d.lock.split("|"); const on = SF.toggleLock(+n, k); SF.toast(on ? "Locked. Rebuilds and swaps leave it alone." : "Unlocked."); SF.render(); return; }
+  if(d.mapday !== undefined){ e.preventDefault(); S.mapDay = +d.mapday || 0; if(location.hash !== "#map") location.hash = "map"; else SF.render(); return; }
+  if(t.id === "mSaved"){ S.mapSaved = !S.mapSaved; SF.render(); return; }
+  if(d.planbswap){ const [n, k] = d.planbswap.split("|"); const r = SF.swapIndoor(+n, k); SF.toast(r ? "Swapped for " + r.n + " (indoors)." : "No indoor option open then."); SF.render(); return; }
 });
 /* Ask button tucks away while scrolling down */
 (function(){ let y = 0, t = null; window.addEventListener("scroll", () => { const f = $("#askFab"), ny = window.scrollY; if(!f) return; if(ny - y > 6 && ny > 120) f.classList.add("away"); else if(ny - y < -6) f.classList.remove("away"); y = ny; clearTimeout(t); t = setTimeout(() => f.classList.remove("away"), 900); }, {passive:true}); })();

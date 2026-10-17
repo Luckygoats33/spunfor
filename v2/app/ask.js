@@ -239,6 +239,7 @@ function close(){ if(!panel) return; panel.remove(); panel = null; document.docu
 document.addEventListener("keydown", e => { if(e.key === "Escape" && panel && !$("#scrim")){ const dt = panel.querySelector(".detail"); if(dt) dt.remove(); else close(); } });
 $("#askFab").addEventListener("click", () => open());
 SF.openAsk = open;
+SF.closeAsk = () => { if(panel) close(); };
 SF.askAnswer = answer;
 const setFab = () => { if(SF.trip) $("#askFabTxt").textContent = "Ask " + (SF.trip.bot || "Spun"); };
 setTimeout(setFab, 50);

@@ -26,19 +26,36 @@ const SLOTS = [
   {t:18 * 60 + 30, cats:["eat"], label:"Dinner"},
   {t:20 * 60 + 30, cats:["music", "drink", "queer"], label:"Night"}
 ];
-SF.buildPlan = function(){
+/* pace changes how many stops a day gets; getting around and accessibility change how far apart they can be; kids drop nightlife */
+const PACE_SLOTS = {relaxed:[0, 1, 2, 3, 5], balanced:[0, 1, 2, 3, 5, 6], adventure:[0, 1, 2, 3, 4, 5, 6, 7]};
+const LATE = {t:22 * 60 + 30, cats:["music", "drink"], label:"Late"};
+SF.planRules = function(){
+  const t = SF.trip, a = SF.lc((t.access || []).join(" ") + " " + (t.notes || []).join(" "));
+  const limited = /limited walking|wheelchair|step.free|mobility|stroller|cane/.test(a);
+  const kids = (t.kids || []).length > 0 || /kid|family/.test(SF.lc(t.name || ""));
+  const maxLeg = limited ? 900 : t.move === "car" ? 12000 : t.move === "transit" ? 6000 : 2200;
+  const skipNight = kids || /sober|no alcohol/.test(a);
+  return {limited, kids, maxLeg, skipNight, slots:(PACE_SLOTS[t.pace] || PACE_SLOTS.balanced).map(i => i === 7 ? LATE : SLOTS[i]).filter(s => !(skipNight && /Night|Late/.test(s.label)))};
+};
+SF.buildPlan = function(keepLocked){
   const days = SF.tripDays(); if(!days.length) return {days:[]};
-  const likes = SF.trip.likes || [], skip = SF.trip.skip || [], used = new Set();
+  const likes = SF.trip.likes || [], R = SF.planRules(), used = new Set();
+  const skip = (SF.trip.skip || []).concat(R.skipNight ? ["drink", "queer"] : []);
   const P = SF.city.P.filter(p => SF.coordOf(p) && !p.c.some(c => skip.includes(c)));
+  const must = (SF.trip.must || []).map(m => SF.lc(m)).filter(m => m.length > 3);
+  const mustIds = new Set(P.filter(p => must.some(m => SF.lc(p.n).includes(m) || m.includes(SF.lc(p.n)))).map(p => p.id));
   const arr = SF.arrivalMins(), dep = SF.departMins();
+  const old = keepLocked ? (SF.tget("plan", null) || {days:[]}) : {days:[]};
+  old.days.forEach(d => d.items.filter(i => i.lock).forEach(i => (i.p || []).forEach(id => used.add(id))));
   const out = [];
   days.forEach((d, i) => {
-    const dow = SF.ymdDow(d.ymd), items = [];
+    const dow = SF.ymdDow(d.ymd), locked = ((old.days.find(x => x.n === d.n) || {}).items || []).filter(it => it.lock), items = locked.slice();
     const start = i === 0 && arr != null ? arr + 75 : 0, end = i === days.length - 1 && dep != null ? dep - 180 : 24 * 60;
     if(i === 0 && arr != null) items.push({k:"arrive", t:SF.hhmm(arr), h:"Land and head to " + (SF.trip.hotel && SF.trip.hotel.name || "the hotel"), fixed:true});
     let prev = SF.trip.hotel && SF.trip.hotel.lat ? [SF.trip.hotel.lat, SF.trip.hotel.lon] : SF.city.city.center;
-    for(const s of SLOTS){
+    for(const s of R.slots){
       if(s.t < start || s.t > end - 30) continue;
+      if(locked.some(l => Math.abs(SF.toM(l.t) - s.t) < 60)) continue;
       const cats = s.cats.filter(c => !skip.includes(c));
       const cand = P.filter(p => !used.has(p.id) && p.c.some(c => cats.includes(c)));
       let best = null, bs = -1e9;
@@ -48,19 +65,57 @@ SF.buildPlan = function(){
         const m = SF.meters(prev, SF.coordOf(p));
         let sc = 0;
         if(p.c.some(c => likes.includes(c))) sc += 40;
+        if(mustIds.has(p.id)) sc += 150;
         if(st.state === "open") sc += 15;
         if(SF.photoOf(p)) sc += 8;
         if(p.rating) sc += (p.rating - 4) * 10;
+        if(R.kids && p.c.some(c => ["nature", "attraction", "history"].includes(c))) sc += 10;
         sc -= Math.min(m, 8000) / 200;
+        if(m > R.maxLeg) sc -= 60 + (m - R.maxLeg) / 50;
         if(sc > bs){ bs = sc; best = p; }
       }
       if(best){ used.add(best.id); items.push({k:"s" + d.n + "-" + s.t, t:SF.hhmm(s.t), h:best.n, p:[best.id], c:best.c[0], slot:s.label}); prev = SF.coordOf(best); }
     }
     if(i === days.length - 1 && dep != null) items.push({k:"depart", t:SF.hhmm(dep - 150), h:"Head to the airport", fixed:true});
+    items.sort((a, b) => SF.toM(a.t) - SF.toM(b.t));
     out.push({n:d.n, ymd:d.ymd, items});
   });
   return {days:out, built:Date.now()};
 };
+/* what could go wrong at that time: closed, not open yet, or no listed hours */
+SF.itemIssue = function(p, dow, mins){
+  const st = SF.statusAt(p, {dow, mins:mins + 10});
+  if(st.state === "unknown") return "Hours unknown, call ahead";
+  if(st.state === "closed") return "Listed as closed then";
+  if(st.state === "later") return "Opens " + SF.fmtM(st.opens);
+  if(st.until - mins < 45) return "Closes " + SF.fmtM(st.until);
+  return "";
+};
+/* must-sees that aren't in the guide: look them up inside the city and add them as places (once per trip) */
+SF.resolveMust = async function(){
+  const must = (SF.trip.must || []).filter(m => m.length > 3), have = SF.tget("mustPlaces", null);
+  const add = list => list.forEach(x => { if(!SF.byId[x.id]){ SF.city.P.push(x.p); SF.city.COORD[x.id] = x.c; SF.byId[x.id] = x.p; } });
+  if(have){ add(have); return false; }
+  if(!must.length){ SF.tset("mustPlaces", []); return false; }
+  const missing = must.filter(m => !SF.city.P.some(p => SF.lc(p.n).includes(SF.lc(m)) || SF.lc(m).includes(SF.lc(p.n))));
+  const c = SF.city.city.center, found = [];
+  for(const m of missing){
+    const j = await SF.getJSON("https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(m + ", " + SF.city.city.name) + "&format=jsonv2&limit=1&addressdetails=1&bounded=1&viewbox=" + [c[1] - .4, c[0] + .3, c[1] + .4, c[0] - .3].join(","), 7000);
+    if(j && j[0]){ const a = j[0].address || {}, id = "M" + found.length; found.push({id, c:[+j[0].lat, +j[0].lon], p:{id, n:j[0].name || m, c:["attraction"], a:a.suburb || a.neighbourhood || "", ad:[a.house_number && a.road ? a.house_number + " " + a.road : a.road, a.city || a.town].filter(Boolean).join(", "), note:"Your must-see. Added from OpenStreetMap; hours not listed, so check before you go.", must:true}}); }
+    await SF.sleep(1100);
+  }
+  SF.tset("mustPlaces", found); add(found);
+  return found.length > 0;
+};
+
+/* reorder: trade time slots with the neighbour (fixed stops like flights never move) */
+SF.moveItem = function(n, k, dir){
+  const p = SF.plan(), d = p.days.find(x => x.n === n); if(!d) return;
+  const mv = d.items.filter(i => !i.fixed), i = mv.findIndex(x => x.k === k), j = i + dir;
+  if(i < 0 || j < 0 || j >= mv.length) return;
+  const a = mv[i], b = mv[j], t = a.t; a.t = b.t; b.t = t; SF.savePlan(p);
+};
+SF.toggleLock = (n, k) => { const p = SF.plan(), d = p.days.find(x => x.n === n), it = d && d.items.find(i => i.k === k); if(it){ it.lock = !it.lock; SF.savePlan(p); return it.lock; } };
 SF.hhmm = m => String(Math.floor(m / 60) % 24).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
 SF.plan = () => { let p = SF.tget("plan", null); if(!p || !p.days || p.days.length !== SF.tripDays().length){ p = SF.buildPlan(); SF.tset("plan", p); } return p; };
 SF.savePlan = p => { p.days.forEach(d => d.items.sort((a, b) => SF.toM(a.t) - SF.toM(b.t))); SF.tset("plan", p); };
@@ -193,6 +248,20 @@ SF.recapText = function(){
 };
 SF.shareRecap = () => SF.shareText("Our trip so far", SF.recapText());
 SF.shareTrip = () => SF.shareText((SF.trip.name || "Our trip") + " on spunfor.me", "Here's our trip app for " + SF.city.city.name + ". Open it, then add it to your home screen:", SF.shareLink(SF.trip));
+SF.publicLink = () => SF.shareLink(Object.assign({}, SF.trip, {hotel:null, flights:[], travelers:[], name:"", id:SF.trip.id + "p"}));
+SF.shareTripPublic = () => SF.shareText("A trip app for " + SF.city.city.name, "Here's a " + SF.city.city.name + " trip app (no personal details in this link):", SF.publicLink());
+SF.backupData = () => { const keys = ["saved", "visited", "checks", "plan", "myChecks"], data = {}; keys.forEach(k => { data[k] = SF.tget(k, null); }); return {kind:"spunfor-trip", v:1, at:new Date().toISOString(), trip:SF.trip, data}; };
+SF.downloadBackup = function(){
+  const blob = new Blob([JSON.stringify(SF.backupData(), null, 1)], {type:"application/json"}), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "spunfor-" + String(SF.trip.cityName || "trip").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + (SF.trip.arrive || "trip") + ".json";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  SF.toast("Saved a backup file. Keep it somewhere safe.");
+};
+SF.restoreBackup = function(file){
+  const r = new FileReader();
+  r.onload = () => { try{ const j = JSON.parse(r.result); if(j.kind !== "spunfor-trip" || !j.trip || !j.trip.city) throw 0; const id = j.trip.id; Object.keys(j.data || {}).forEach(k => { if(j.data[k] != null) SF.store.set("sf." + id + "." + k, j.data[k]); }); location.href = SF.shareLink(j.trip); }catch(e){ SF.toast("That file isn't a spunfor.me trip backup."); } };
+  r.readAsText(file);
+};
 SF.sendLocation = function(){
   if(!navigator.geolocation){ SF.toast("Location isn't available in this browser."); return; }
   SF.toast("Finding you…");

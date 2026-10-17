@@ -1,6 +1,6 @@
 /* spunfor.me offline: keep the app shell and city files; always try the network first for pages and city data */
-const CACHE = "spunfor-app-v1";
-const SHELL = ["./", "index.html", "app.css", "core.js", "trip.js", "ui.js", "ask.js", "manifest.webmanifest", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/markercluster/leaflet.markercluster.js", "vendor/markercluster/MarkerCluster.css"];
+const CACHE = "spunfor-app-v7";
+const SHELL = ["./", "index.html", "app.css?v=7", "core.js?v=7", "trip.js?v=7", "extras.js?v=7", "ui.js?v=7", "ask.js?v=7", "manifest.webmanifest", "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css", "vendor/markercluster/leaflet.markercluster.js", "vendor/markercluster/MarkerCluster.css"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
