@@ -342,3 +342,8 @@ p{margin:0}
 @media(max-width:420px){ .where-box input{padding:0 8px;font-size:1rem} .where-box .btn{padding:8px 14px;min-height:48px} .nav .btn.small{padding:6px 12px} .word{font-size:1.05rem} }
 .hero-copy{min-width:0}
 .sb-pick{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;background:#E3000F;color:#fff;padding:1px 6px;border-radius:99px}
+/* the phone mock always fits its column */
+.phone{width:min(300px,100%)}
+.hero-art{min-width:0}
+[data-style="swiss"] .hero-grid{grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr)}
+@media(max-width:860px){ [data-style="swiss"] .hero-grid{grid-template-columns:1fr} }
