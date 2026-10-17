@@ -141,6 +141,82 @@ function answer(k,val){
   if(k==='dates'){var r=dates(val,false);return r?r[0]:cap(val)}
   return val;
 }
-var api={parseTrip:parseTrip,answer:answer,tc:tc,IDK:IDK};
+
+/* ---------- real date resolution ---------- */
+var MONIDX={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+var DOW={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+function mi(w){return MONIDX[String(w).toLowerCase().slice(0,3)]}
+function dstart(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function addD(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
+function iso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function fromIso(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3]):null}
+var DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmt(d){return DN[d.getDay()]+' '+MN[d.getMonth()]+' '+d.getDate()}
+function label(a,b){return a.getTime()===b.getTime()?fmt(a):fmt(a)+' → '+fmt(b)}
+/* nextDow: first date >= from that is weekday n */
+function nextDow(from,n){var d=dstart(from);while(d.getDay()!==n)d=addD(d,1);return d}
+function mk(a,b,approx,note){return {start:iso(a),end:iso(b),days:Math.round((b-a)/864e5)+1,label:label(a,b),approx:!!approx,note:note||''}}
+function build(y,mo,d,today){var x=new Date(y,mo,d);return x}
+/* year rollover: pick this year unless the whole range already ended before today, then next year */
+function pickYear(m1,d1,m2,d2,today){
+  var y=today.getFullYear(),a=new Date(y,m1,d1),b=new Date(y,m2,d2);
+  if(b<a)b=new Date(y+1,m2,d2);
+  if(b<dstart(today)){a=new Date(y+1,m1,d1);b=new Date(a.getFullYear()+(new Date(y+1,m2,d2)<a?1:0),m2,d2)}
+  return [a,b];
+}
+/* resolveDates(text, today): text like "Oct 3-7", "10/3 to 10/7", "fri to sun", "next weekend", "a week in June" ->
+   {start,end,days,label,approx} or {days,label:text,approx:true} (duration only) or null. */
+function resolveDates(text,today){
+  today=dstart(today||new Date());
+  var t=String(text||'').toLowerCase().replace(/[–—]/g,'-').replace(/\s+/g,' ').trim();
+  if(!t||IDK.test(t))return null;
+  var m,r,M='('+MONS+')';
+  // Oct 3-7 / Oct 3 to Oct 7 / March 12-19
+  if((m=new RegExp('^'+M+'\\.?\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|to|til|till|until|thru|through)\\s*(?:'+M+'\\.?\\s*)?(\\d{1,2})(?:st|nd|rd|th)?$','i').exec(t))){
+    var m1=mi(m[1]),m2=m[3]?mi(m[3]):m1;r=pickYear(m1,+m[2],m2,+m[4],today);return mk(r[0],r[1]);
+  }
+  // 12 Mar - 19 Mar / 12-19 Mar
+  if((m=new RegExp('^(\\d{1,2})\\s*'+M+'?\\.?\\s*(?:-|to|til|till|until|thru|through)\\s*(\\d{1,2})\\s*'+M+'\\.?$','i').exec(t))){
+    var b2=mi(m[4]),a2=m[2]?mi(m[2]):b2;r=pickYear(a2,+m[1],b2,+m[3],today);return mk(r[0],r[1]);
+  }
+  // 10/3 to 10/7 , 10/3-10/7 , 10/3
+  if((m=/^(\d{1,2})\/(\d{1,2})(?:\s*(?:-|to|til|till|until|thru|through)\s*(\d{1,2})\/(\d{1,2}))?$/.exec(t))){
+    var a1=+m[1]-1,d1=+m[2],a3=m[3]?+m[3]-1:a1,d3=m[4]?+m[4]:d1;
+    if(a1>11||a3>11)return null;r=pickYear(a1,d1,a3,d3,today);return mk(r[0],r[1]);
+  }
+  // single month day: Oct 3
+  if((m=new RegExp('^'+M+'\\.?\\s*(\\d{1,2})$','i').exec(t))){r=pickYear(mi(m[1]),+m[2],mi(m[1]),+m[2],today);return mk(r[0],r[1])}
+  // weekday range: fri to sun, this friday to sunday, fri-sun
+  if((m=/^(?:this |next |coming )?(mon|tue|wed|thu|fri|sat|sun)[a-z]*\s*(?:-|to|til|till|until|thru|through)\s*(?:the )?(mon|tue|wed|thu|fri|sat|sun)[a-z]*$/.exec(t))){
+    var base=today;if(/^next /.test(t))base=addD(today,7-((today.getDay()+6)%7)); // next = following week (Mon)
+    var s0=nextDow(base,DOW[m[1]]),e0=nextDow(s0,DOW[m[2]]);if(e0.getTime()===s0.getTime())e0=addD(e0,7);
+    return mk(s0,e0);
+  }
+  // through sun
+  if((m=/^through (mon|tue|wed|thu|fri|sat|sun)[a-z]*$/.exec(t))){return mk(today,nextDow(today,DOW[m[1]]),true,'start assumed today')}
+  // single weekday: fri, this friday
+  if((m=/^(?:this |next |coming )?(mon|tue|wed|thu|fri|sat|sun)[a-z]*$/.exec(t))){var d0=nextDow(/^next /.test(t)?addD(today,7):today,DOW[m[1]]);return mk(d0,d0)}
+  if(/^this weekend$/.test(t)){var dow=today.getDay(),f=(dow===6||dow===0)?today:nextDow(today,5),sn=nextDow(f,0);return mk(f,sn)}
+  if(/^next weekend$/.test(t)){var dw=today.getDay(),f3=(dw===6)?addD(today,6):(dw===0?addD(today,5):addD(nextDow(today,5),7));return mk(f3,nextDow(f3,0))}
+  if(t==='tomorrow'){var tm=addD(today,1);return mk(tm,tm)}
+  if(t==='tonight'||t==='today'){return mk(today,today)}
+  if(/^next week$/.test(t)){var nm=nextDow(addD(today,1),1);return mk(nm,addD(nm,6),true,'week assumed Mon to Sun')}
+  if(/^this week$/.test(t)){return mk(today,nextDow(today,0),true)}
+  // a week in June / 3 days in March / early june
+  if((m=new RegExp('^(?:(a|an|one|two|three|four|five|\\d+)\\s+(week|weeks|weekend|day|days|night|nights))?\\s*(?:in|during|early|late|mid|for|this)?[ -]?'+M+'(?:\\s+(\\d{4}))?$','i').exec(t))&&(m[3]||m[1])){
+    var num={a:1,an:1,one:1,two:2,three:3,four:4,five:5}[m[1]]||(+m[1])||0,unit=m[2]||'',len=!num?0:(/week$|weeks$/.test(unit)?num*7:(unit==='weekend'?num*2:num));
+    var mo=mi(m[3]),y=m[4]?+m[4]:today.getFullYear(),st=new Date(y,mo,1);
+    if(!m[4]&&new Date(y,mo+1,0)<today)st=new Date(y+1,mo,1);
+    var days=len||0,en=days?addD(st,days-1):new Date(st.getFullYear(),st.getMonth()+1,0);
+    var o=mk(st,en,true,days?'exact dates TBD within '+MN[mo]:'month only');o.label=(days?(unit.indexOf('week')===0&&num===1?'A week':num+' '+unit):'')+(days?' in ':'')+MN[mo]+(days?' (dates TBD)':'');return o;
+  }
+  // duration only: 3 days, a week
+  if((m=/^(?:for )?(a|an|one|two|three|four|five|six|seven|\d+)\s+(week|weeks|weekend|day|days|night|nights)$/.exec(t))){
+    var n2={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7}[m[1]]||(+m[1]),len2=/week/.test(m[2])&&m[2]!=='weekend'?n2*7:(m[2]==='weekend'?n2*2:n2);
+    return {days:Math.min(len2,14),label:cap(t),approx:true,note:'no start date yet'};
+  }
+  return null;
+}
+var api={parseTrip:parseTrip,answer:answer,tc:tc,IDK:IDK,resolveDates:resolveDates,iso:iso,fromIso:fromIso,fmt:fmt};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.SpunforParse=api;
 })(typeof window!=='undefined'?window:this);

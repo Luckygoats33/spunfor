@@ -100,7 +100,7 @@ function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
 function clean(d){var o={};Object.keys(d).forEach(function(k){var v=String(d[k]==null?'':d[k]).trim();if(v)o[k]=v});return o}
 function finish(){
   prog.textContent='Spun';setRing(1,'✓');
-  finished=true;data=clean(data);ls('trip',data);renderChips();try{sessionStorage.setItem('spunfor.trip',JSON.stringify(data))}catch(e){}
+  finished=true;data=clean(data);try{var rd=data.dates&&P.resolveDates?P.resolveDates(data.dates):null;if(rd){if(rd.start){data.start=rd.start;data.end=rd.end}data.dateLabel=rd.label;if(rd.approx)data.approxDates=true}}catch(e){}ls('trip',data);renderChips();try{sessionStorage.setItem('spunfor.trip',JSON.stringify(data))}catch(e){}
   var url='preview.html',w=null;
   try{w=window.open(url,'_blank')}catch(e){w=null}
   if(w&&!w.closed){try{w.opener=null}catch(e){}

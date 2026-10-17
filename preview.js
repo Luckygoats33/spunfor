@@ -7,7 +7,8 @@ var CFG=window.SPUNFOR_CONFIG||{};
 var PRICE=(CFG.price||29.99), PRICE_TXT='$'+PRICE.toFixed(2);
 var MODS=['Ink / tattoos','Nature','Nightlife','History / Time Machine','Celebration','Animals','Food / dietary'];
 var SCHEMES=[['generic','Generic (blue, white, gray)'],['city','City colors'],['custom','Custom colors']];
-var custom={scheme:'city',accent:'#E4572E',modules:MODS.slice()};
+var SECS=[['map','Map'],['itinerary','Itinerary'],['checklist','Checklist'],['notes','Notes']];
+var custom={scheme:'city',accent:'#E4572E',modules:MODS.slice(),sections:{map:true,itinerary:true,checklist:true,notes:true}};
 var data=null,unlockState=null,modalState='offer',promoOk=false,lastFocus=null;
 var $=function(id){return document.getElementById(id)};
 var result=$('result');
@@ -15,6 +16,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function ls(k,v){try{if(v===undefined){var x=localStorage.getItem('spunfor.'+k);return x?JSON.parse(x):null}if(v===null)localStorage.removeItem('spunfor.'+k);else localStorage.setItem('spunfor.'+k,JSON.stringify(v))}catch(e){return null}}
 function list(s){return (s||'').split(/[,;\n]| and |&/i).map(function(x){return x.trim()}).filter(Boolean).slice(0,10)}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function appHref(d){var c=window.SpunforCities&&SpunforCities.find(destName(d)||'');return (c&&c.demo)||!destName(d)?esc(CFG.demoPath||'demo/index.html')+'#home':'trip.html'}
 function destName(d){return (d&&d.dest&&String(d.dest).trim())||''}
 function isNola(d){return /new orleans|nola/i.test(destName(d))}
 function honestyNote(d){
@@ -28,10 +30,10 @@ function previewHtml(d,unlocked){
   var tk='<div class="spec"><span class="sticker'+(unlocked?' ok':'')+'">'+(unlocked?'Unlocked':'Locked preview')+'</span><div class="top"><span>Your trip, spun</span><span>'+(unlocked?'Unlocked':'Preview')+'</span></div><div class="route">Home &rarr; <em>'+esc(dest||'Your trip')+'</em></div>'+
    (rowsRows.length?'<dl>'+rowsRows.map(function(r){return '<div><dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd></div>'}).join('')+'</dl>':'')+
    (likes.length?'<div class="mods-row">'+likes.map(function(l){return '<span>'+esc(cap(l))+'</span>'}).join('')+'</div>':'')+(avoid.length?'<p class="fine" style="margin:12px 0 0">Skip: '+avoid.map(esc).join(', ')+'</p>':'')+'</div>';
-  var copy='<div class="pv-copy"><p class="k"><b>Your preview</b></p><h3>Your '+esc(dest||'trip')+' app, spun together from your answers.</h3><p class="honest-note" id="honestNote" role="note">'+honestyNote(d)+'</p><p class="sub">'+(unlocked?'Unlocked. Open it and try Holla Holla, Surprise Me, the map, your passport and the theme picker.':'This is a preview. Unlock it to open the full interactive app with a map, open-now filter, Surprise Me itineraries, passport and themes.')+'</p>'+
+  var copy='<div class="pv-copy"><p class="k"><b>Your preview</b></p><h3>Your '+esc(dest||'trip')+' app, spun together from your answers.</h3><p class="honest-note" id="honestNote" role="note">'+honestyNote(d)+'</p><p class="sub">'+(unlocked?(appHref(d).indexOf('trip.html')===0?'Unlocked. Open your starter plan: itinerary frame, map, checklist, notes and the theme picker.':'Unlocked. Open it and try Holla Holla, Surprise Me, the map, your passport and the theme picker.'):'This is a preview. Unlock it to open the full interactive app with a map, open-now filter, Surprise Me itineraries, passport and themes.')+'</p>'+
    '<div class="pv-strip" aria-hidden="true"><span class="on">Home</span><span>Map</span><span>Explore</span><span>Saved</span><span>Help</span></div>'+
    (unlocked?'':'<div class="pv-lockrow" aria-hidden="true"><span>Open now: nearby picks</span><span>Surprise Me</span><span>Passport</span></div>')+
-   '<div class="actions" id="pvActions">'+(unlocked?'<a class="btn big" id="openMy" href="'+esc(CFG.demoPath||'demo/index.html')+'#home" target="_blank" rel="noopener">Open my app</a>':'<button class="btn big" type="button" id="unlockBtn">Unlock your app · '+PRICE_TXT+'</button>')+'<a class="btn ghost dk big" id="again" href="index.html#chat">Start over</a></div></div>';
+   '<div class="actions" id="pvActions">'+(unlocked?'<a class="btn big" id="openMy" href="'+appHref(d)+'" target="_blank" rel="noopener">Open my app</a>':'<button class="btn big" type="button" id="unlockBtn">Unlock your app · '+PRICE_TXT+'</button>')+'<a class="btn ghost dk big" id="again" href="index.html#chat">Start over</a></div></div>';
   return '<div class="pv">'+tk+copy+'</div>';
 }
 function renderPreview(){
@@ -52,7 +54,7 @@ function draw(){
     h=x+'<div class="m-top">'+testBanner()+'<p class="k" style="margin:14px 0 6px">One-time unlock</p><h2 id="mTitle">Unlock your personalized app — '+PRICE_TXT+'</h2><p class="sub">One-time. Your '+esc((data&&data.dest)||'trip')+' app, ready to use on your phone.</p>'+
      '<ul class="perks"><li>Holla Holla open-now filter, Surprise Me and a walking-radius map</li><li>Editable plan with route to Google Maps</li><li>Saved places, votes, passport stamps and journal (stored on your device)</li><li>Full customization: your color scheme plus the modules you want</li></ul>'+
      '<div class="cust" id="cust"><fieldset><legend>Color scheme</legend>'+SCHEMES.map(function(s){return '<label class="opt"><input type="radio" name="scheme" value="'+s[0]+'"'+(custom.scheme===s[0]?' checked':'')+'> '+s[1]+'</label>'}).join('')+'<label class="opt colorrow" id="accRow"'+(custom.scheme==='custom'?'':' hidden')+'>Accent <input type="color" id="accent" value="'+custom.accent+'" aria-label="Custom accent color"></label></fieldset>'+
-     '<fieldset><legend>Optional modules</legend>'+MODS.map(function(m,i){return '<label class="opt"><input type="checkbox" name="mod" value="'+m+'"'+(custom.modules.indexOf(m)>-1?' checked':'')+'> '+m+'</label>'}).join('')+'</fieldset><p class="fine">Built on the NOLA V3 design, layout and features. Choices apply to your app when you unlock.</p></div></div>'+
+     '<fieldset><legend>Optional modules</legend>'+MODS.map(function(m,i){return '<label class="opt"><input type="checkbox" name="mod" value="'+m+'"'+(custom.modules.indexOf(m)>-1?' checked':'')+'> '+m+'</label>'}).join('')+'</fieldset><fieldset><legend>App sections</legend>'+SECS.map(function(s){return '<label class="opt"><input type="checkbox" name="sec" value="'+s[0]+'"'+(custom.sections[s[0]]?' checked':'')+'> '+s[1]+'</label>'}).join('')+'</fieldset><p class="fine">Colors and modules also apply to the New Orleans demo. Choices apply to your app when you unlock, and you can change them later in the app.</p></div></div>'+
      '<div class="m-stub"><div class="price"><b>'+(promoOk?'$0.00':PRICE_TXT)+'</b><span>'+(promoOk?'promo applied':'one-time · USD · test price')+'</span></div>'+
      '<div class="promo"><label class="sr" for="promo">Promo code</label><input id="promo" type="text" placeholder="Promo code" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40"><button type="button" id="applyPromo">Apply</button></div><div class="msgline" id="promoMsg" aria-live="polite"></div>'+
      (promoOk?'<button class="btn m-btn" type="button" id="freeBtn">Unlock for free</button>':'<button class="btn m-btn" type="button" id="buyBtn">Buy now · '+PRICE_TXT+' (test)</button>')+
@@ -70,7 +72,7 @@ function draw(){
     var u=unlockState||{},cu=u.custom||custom;
     h='<div class="m-top center-t">'+testBanner()+'<div><span class="okmark" aria-hidden="true">Unlocked</span></div><h2 id="mTitle" style="margin-right:0">'+(u.via==='promo'?'You’re in — unlocked free':'Payment successful (test)')+'</h2><p class="sub">Your personalized app is unlocked.</p></div><div class="m-stub">'+
      '<div class="receipt"><div><span>Receipt</span><code>'+esc(u.receipt||'')+'</code></div><div><span>Item</span><span>Personalized trip app (one-time)</span></div><div><span>Colors</span><span>'+esc((SCHEMES.filter(function(s){return s[0]===cu.scheme})[0]||SCHEMES[1])[1])+'</span></div><div><span>Modules</span><span>'+esc((cu.modules||[]).join(', ')||'None selected')+'</span></div><div><span>Paid</span><b>'+(u.via==='promo'?'$0.00 (promo)':PRICE_TXT+' (TEST – not charged)')+'</b></div><div><span>Date</span><span>'+new Date(u.ts||Date.now()).toLocaleString()+'</span></div></div>'+
-     '<a class="btn m-btn" id="openApp" href="'+esc(CFG.demoPath||'demo/index.html')+'#home" target="_blank" rel="noopener">Open my app</a><button class="m-sub" type="button" data-close>Stay on this page</button></div>';
+     '<a class="btn m-btn" id="openApp" href="'+appHref(data)+'" target="_blank" rel="noopener">Open my app</a><button class="m-sub" type="button" data-close>Stay on this page</button></div>';
   }
   modal.innerHTML=h;bind();
 }
@@ -85,6 +87,7 @@ function bind(){
   var cs=modal.querySelectorAll('input[name=scheme]');[].forEach.call(cs,function(r){r.onchange=function(){custom.scheme=r.value;var ar=q('accRow');if(ar)ar.hidden=r.value!=='custom'}});
   if(q('accent'))q('accent').oninput=function(){custom.accent=q('accent').value};
   [].forEach.call(modal.querySelectorAll('input[name=mod]'),function(c){c.onchange=function(){var i=custom.modules.indexOf(c.value);if(c.checked&&i<0)custom.modules.push(c.value);if(!c.checked&&i>-1)custom.modules.splice(i,1)}});
+  [].forEach.call(modal.querySelectorAll('input[name=sec]'),function(c){c.onchange=function(){custom.sections[c.value]=c.checked}});
   if(q('freeBtn'))q('freeBtn').onclick=function(){grant('promo')};
   if(q('buyBtn'))q('buyBtn').onclick=function(){
     if(CFG.checkoutUrl){ /* Production hook: send the visitor to a hosted Stripe Checkout session (see README). */
@@ -120,8 +123,8 @@ function pay(){
 }
 function grant(via){
   var id='TEST-'+Math.random().toString(36).slice(2,8).toUpperCase()+'-'+Date.now().toString(36).toUpperCase();
-  unlockState={via:via,receipt:via==='promo'?'PROMO-'+id.slice(5):id,ts:Date.now(),test:true,custom:{scheme:custom.scheme,accent:custom.accent,modules:custom.modules.slice()}};
-  ls('unlock',unlockState);ls('trip',data);ls('modules',custom.modules.slice());ls('theme',{mode:custom.scheme,accent:custom.accent}); /* demo reads spunfor.theme; modules are saved for the build */
+  unlockState={via:via,receipt:via==='promo'?'PROMO-'+id.slice(5):id,ts:Date.now(),test:true,custom:{scheme:custom.scheme,accent:custom.accent,modules:custom.modules.slice(),sections:Object.assign({},custom.sections)}};
+  ls('unlock',unlockState);ls('trip',data);ls('modules',custom.modules.slice());ls('sections',Object.assign({},custom.sections));ls('theme',{mode:custom.scheme,accent:custom.accent}); /* demo reads spunfor.theme; modules are saved for the build */
   if(via==='promo'){setState('processing');setTimeout(function(){renderPreview();setState('success')},900)}
   else{renderPreview();setState('success')}
 }

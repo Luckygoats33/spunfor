@@ -4,7 +4,7 @@
 Covers landing, chat, preview, unlock modal, promo + TEST checkout, and the demo app (a faithful copy of NOLA V3) at 390 and 1280."""
 import sys, os, re
 from playwright.sync_api import sync_playwright
-BASE = 'http://127.0.0.1:8433/'
+BASE = os.environ.get('E2E_BASE', 'http://127.0.0.1:8433/')
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/workspace/spunfor-shots/v4'
 os.makedirs(OUT, exist_ok=True)
 ANS = ['Delta 1234 MSY, arrives Sat 10:30am', '12 Mar to 15 Mar', 'New Orleans', 'jazz, beignets, history, hidden gems', 'loud Bourbon Street party crowds', '$$ moderate', '2 adults, birthday trip', 'vegetarian options']
@@ -226,6 +226,75 @@ with sync_playwright() as p:
     c.close()
     c, q, trip, asked, phs = drive(['not booked yet', 'Oct 3-7', 'Portland, OR', 'coffee, I am vegetarian and travelling with my wife', 'crowds'])
     ok('intake later answer carrying a need/group keeps likes clean', trip.get('likes') == 'coffee' and trip.get('needs') == 'Vegetarian' and 'wife' in trip.get('group', '') and trip.get('dislikes') == 'crowds', str(trip))
+    c.close()
+    # ---- ITEM 1 + 3: personalized trip app, theme + modules + sections ----
+    import json as _j2
+    def seed(pg, trip, extra=None):
+        pg.goto(BASE + 'index.html'); pg.evaluate("t=>{localStorage.clear();localStorage.setItem('spunfor.trip',JSON.stringify(t))}", trip)
+        for k, v in (extra or {}).items(): pg.evaluate("([k,v])=>localStorage.setItem('spunfor.'+k,JSON.stringify(v))", [k, v])
+    PDX = {'dest': 'Portland, OR', 'dates': 'Fri to Sun', 'start': '2026-10-23', 'end': '2026-10-25', 'dateLabel': 'Fri Oct 23 → Sun Oct 25', 'likes': 'coffee, bookstores, food carts, jazz', 'dislikes': 'crowds', 'budget': 'mid-range', 'group': '2 adults', 'needs': 'vegetarian options'}
+    for W, H in ((1280, 800), (390, 844), (320, 700)):
+        c = b.new_context(viewport={'width': W, 'height': H}); q = c.new_page(); errs2 = []
+        q.on('pageerror', lambda e: errs2.append(str(e)))
+        seed(q, PDX); q.goto(BASE + 'trip.html'); q.wait_for_selector('#tripTitle'); q.wait_for_timeout(1200)
+        ok(f'{W} app: title uses city, dates + group shown', q.inner_text('#tripTitle') == 'Portland, OR' and 'Fri Oct 23 → Sun Oct 25' in q.inner_text('.facts') and '2 adults' in q.inner_text('.facts'))
+        ok(f'{W} app: honesty note names the city', 'Starter plan: add real places as we build out Portland' in q.inner_text('#starterNote'))
+        ok(f'{W} app: 3 days x 3 slots from date range', q.locator('.day').count() == 3 and q.locator('.slot').count() == 9 and 'Sun Oct 25' in q.inner_text('.day >> nth=2'))
+        pr = q.inner_text('#sec-itinerary').lower()
+        ok(f'{W} app: slot prompts come from likes (coffee, bookstore, food cart, live music)', 'coffee spot' in pr and 'bookstore' in pr and 'food cart' in pr and 'live music' in pr)
+        ok(f'{W} app: guardrails show avoid/budget/group/needs', all(x in q.inner_text('#guards').lower() for x in ('crowds', 'mid-range', '2 adults', 'vegetarian')))
+        ok(f'{W} app: checklist seeded from needs', 'vegetarian' in q.inner_text('#checklist').lower())
+        ok(f'{W} app: Google Maps links search-only, new tab, include city', q.evaluate("[...document.querySelectorAll('.slot .links a')].every(a=>a.target=='_blank'&&/noopener/.test(a.rel)&&a.href.startsWith('https://www.google.com/maps/search/')&&decodeURIComponent(a.href).includes('Portland'))"))
+        ok(f'{W} app: map renders for Portland', q.locator('#map.leaflet-container').count() == 1)
+        ok(f'{W} app: no hscroll', q.evaluate('document.documentElement.scrollWidth<=innerWidth'))
+        if W == 390:
+            q.screenshot(path=f'{OUT}/app-portland-{W}.png', full_page=True)
+            q.locator('[data-check]').first.check(); q.fill('#notes', 'book Powell Street dinner'); q.locator('.slot form input').first.fill('My coffee pick'); q.locator('.slot form button').first.click(); q.wait_for_timeout(200)
+            q.reload(); q.wait_for_selector('#tripTitle'); q.wait_for_timeout(500)
+            ok('app: edits persist (check, note, own place) after reload', q.locator('[data-check]').first.is_checked() and q.input_value('#notes') == 'book Powell Street dinner' and 'My coffee pick' in q.inner_text('.places'))
+            # item 3: theme
+            def acc(): return q.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().toLowerCase()")
+            base = acc(); q.click('[data-theme=generic]'); g = acc(); q.click('[data-theme=custom]'); q.evaluate("(()=>{const i=document.getElementById('accent');i.value='#0a7a3c';i.dispatchEvent(new Event('input',{bubbles:true}))})()"); cu = acc()
+            ok('theme picker changes CSS variables in the app', g == '#1d4ed8' and base != g and cu != g and cu != base, f'{base} {g} {cu}')
+            ok('theme saved to spunfor.theme', _j2.loads(q.evaluate("localStorage.getItem('spunfor.theme')"))['mode'] == 'custom')
+            q.click('[data-theme=city]'); ok('theme city restores palette', acc() == base)
+            # item 3: modules
+            ok('module Nightlife on: music + bars prompts and explore card present', 'live music' in q.inner_text('#sec-itinerary').lower() and q.locator('#explore [data-mod="Nightlife"]').count() == 1)
+            q.uncheck('[data-mod-toggle="Nightlife"]'); q.wait_for_timeout(200)
+            ok('toggling Nightlife off removes explore card and music prompts from DOM', q.locator('#explore [data-mod="Nightlife"]').count() == 0 and 'live music' not in q.inner_text('#sec-itinerary').lower() and 'Nightlife' not in _j2.loads(q.evaluate("localStorage.getItem('spunfor.modules')")))
+            q.uncheck('[data-sec-toggle=map]'); q.wait_for_timeout(200)
+            ok('sections toggle hides the map section', not q.is_visible('#sec-map') and not q.locator('#tabs [data-go=sec-map]').count())
+            q.uncheck('[data-sec-toggle=notes]'); q.uncheck('[data-sec-toggle=checklist]'); q.wait_for_timeout(200)
+            ok('sections toggles hide notes and checklist', not q.is_visible('#sec-notes') and not q.is_visible('#sec-checklist'))
+            q.reload(); q.wait_for_selector('#tripTitle'); ok('sections + modules persist after reload', not q.is_visible('#sec-map') and q.locator('#explore [data-mod="Nightlife"]').count() == 0)
+            q.check('[data-sec-toggle=map]'); q.wait_for_timeout(300); q.screenshot(path=f'{OUT}/app-customize-{W}.png')
+        else:
+            q.screenshot(path=f'{OUT}/app-portland-{W}.png', full_page=(W == 1280))
+        ok(f'{W} app: no page errors', not errs2, str(errs2))
+        c.close()
+    c = b.new_context(viewport={'width': 390, 'height': 844}); q = c.new_page()
+    seed(q, {'dest': 'Reykjavik', 'dates': '3 days', 'likes': 'hot springs'}); q.goto(BASE + 'trip.html'); q.wait_for_selector('#tripTitle'); q.wait_for_timeout(600)
+    ok('unknown city: map-less state + not-launch-city flag, still a starter plan', q.locator('#map').count() == 0 and q.locator('#nomap').count() == 1 and 'launch city' in q.inner_text('#unsupported') and q.locator('.day').count() == 3 and 'hot springs' in q.inner_text('#sec-itinerary').lower())
+    q.screenshot(path=f'{OUT}/app-unknown-390.png', full_page=True)
+    seed(q, {'dest': 'New Orleans', 'dates': 'Fri to Sun', 'likes': 'jazz'}); q.goto(BASE + 'trip.html'); q.wait_for_selector('#tripTitle')
+    ok('New Orleans: links to the real V3 demo in a new tab', q.get_attribute('#nolaLink', 'href') == 'demo/index.html#home' and q.get_attribute('#nolaLink', 'target') == '_blank')
+    seed(q, {}); q.goto(BASE + 'trip.html'); q.wait_for_timeout(300); ok('app with no trip: friendly empty state', 'No trip yet' in q.inner_text('main'))
+    # unlock flow routes to the right app
+    for dest, want in (('Portland, OR', 'trip.html'), ('New Orleans', 'demo/index.html#home')):
+        seed(q, {'dest': dest, 'dates': 'Fri to Sun', 'likes': 'coffee'}); q.goto(BASE + 'preview.html'); q.wait_for_selector('#unlockBtn'); q.wait_for_timeout(1700)
+        ok(f'preview modal has 4 section toggles ({dest})', q.locator('input[name=sec]').count() == 4)
+        q.uncheck('input[name=sec][value=notes]'); q.fill('#promo', 'goat'); q.click('#applyPromo'); q.click('#freeBtn'); q.wait_for_selector('#openApp', timeout=9000)
+        ok(f'Open my app for {dest} -> {want} in new tab', q.get_attribute('#openApp', 'href') == want and q.get_attribute('#openApp', 'target') == '_blank')
+        ok(f'unlock saves sections ({dest})', _j2.loads(q.evaluate("localStorage.getItem('spunfor.sections')")).get('notes') is False)
+        if want == 'trip.html':
+            with c.expect_page() as npi: q.click('#openApp')
+            ap = npi.value; ap.wait_for_selector('#tripTitle'); ap.wait_for_timeout(400)
+            ok('unlock then Open my app lands on personalized app with notes section off', ap.inner_text('#tripTitle') == 'Portland, OR' and not ap.is_visible('#sec-notes'))
+            ap.close()
+    # does the V3 demo respond? (it is byte-identical; its own built-in spunfor.theme / spunfor.modules layer is what is read)
+    seed(q, {'dest': 'New Orleans'}, {'theme': {'mode': 'generic', 'accent': '#E4572E'}, 'modules': ['Nature'], 'sections': {}})
+    q.add_init_script("localStorage.setItem('nola3-tour-done','1')"); q.goto(BASE + 'demo/index.html'); q.wait_for_timeout(1500)
+    ok('V3 demo reads spunfor.theme (generic) and spunfor.modules (hides unselected module entry points)', q.get_attribute('html', 'data-spun-theme') == 'generic' and q.locator('style#spun-modules').count() == 1 and q.evaluate("getComputedStyle(document.querySelector('[data-tab=ink]')).display") == 'none')
     c.close()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, reduced_motion='reduce'); pg = ctx.new_page(); pg.goto(BASE + 'index.html'); pg.wait_for_timeout(600)
     ok('reduced motion: animations off', pg.evaluate('getComputedStyle(document.querySelector(".badge-ring")).animationName')=='none' and pg.evaluate('getComputedStyle(document.querySelector(".reveal")).opacity')=='1')
