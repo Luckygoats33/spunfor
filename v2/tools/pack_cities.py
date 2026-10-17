@@ -40,5 +40,7 @@ for c in seed:
     if done: ready += 1
     index.append({"s": c["slug"], "n": c["name"], "st": c.get("state") or "", "c": [round(x, 4) for x in (c.get("center") or [0, 0])], "pop": c.get("population") or 0, "r": 1 if done else 0})
 index.sort(key=lambda x: -x["pop"])
-(OUT / "index.json").write_text(json.dumps({"built": __import__("datetime").date.today().isoformat(), "cities": index}, separators=(",", ":")), encoding="utf-8")
+# compact rows keep the index small enough for the homepage: [slug, name, state, lat, lon, population in thousands, ready]
+rows = [[c["s"], c["n"], c["st"], round(c["c"][0], 3), round(c["c"][1], 3), round((c["pop"] or 0) / 1000, 1), c["r"]] for c in index]
+(OUT / "index.json").write_text(json.dumps({"built": __import__("datetime").date.today().isoformat(), "f": ["s", "n", "st", "lat", "lon", "popK", "r"], "rows": rows}, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
 print(f"index: {len(index)} cities, {ready} ready")

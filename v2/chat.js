@@ -4,7 +4,7 @@
 (function(){
 const SF = window.SF, $ = SF.$, esc = SF.esc, lc = SF.lc, PARSE = window.SpunforParse;
 let CITIES = [];
-SF.getJSON("cities/index.json", 10000).then(j => { CITIES = (j && j.cities) || []; });
+SF.getJSON("cities/index.json", 10000).then(j => { CITIES = (j && j.rows ? j.rows.map(r => ({s:r[0], n:r[1], st:r[2], c:[r[3], r[4]], pop:Math.round(r[5] * 1000), r:r[6]})) : (j && j.cities) || []); });
 
 /* ---------- vocab ---------- */
 const CATS = {coffee:"Coffee", eat:"Food", drink:"Cocktails", music:"Live music", art:"Art", history:"History", nature:"Parks & outdoors", attraction:"Landmarks", shop:"Shopping", sports:"Game day", queer:"Queer nights"};

@@ -15,12 +15,12 @@ $$(".sb-opts button").forEach(b => b.addEventListener("click", () => setStyle(b.
 setStyle(root.getAttribute("data-style") || "swiss", false);
 window.SFsetStyle = setStyle;
 
-/* ---------- city index (1,129 cities; r=1 means curated file is ready) ---------- */
+/* ---------- city index (every US city and town on the collector list; r=1 means a curated file is ready) ---------- */
 let CITIES = [];
 const ready = () => CITIES.filter(c => c.r);
 async function loadIndex(){
   const j = await SF.getJSON("cities/index.json", 10000);
-  CITIES = (j && j.cities) || [];
+  CITIES = (j && j.rows ? j.rows.map(r => ({s:r[0], n:r[1], st:r[2], c:[r[3], r[4]], pop:Math.round(r[5] * 1000), r:r[6]})) : (j && j.cities) || []);
   $("#nReady").textContent = ready().length;
   renderCityGrid();
 }
@@ -34,7 +34,7 @@ function findCities(q, n){
 function renderCityGrid(){
   const r = ready().sort((a, b) => a.n.localeCompare(b.n));
   $("#cityGrid").innerHTML = r.map(c => '<button type="button" class="city" data-slug="' + esc(c.s) + '"><b>' + esc(c.n) + '</b><span>' + esc(c.st) + ' · curated</span></button>').join("")
-    + '<div class="city more"><b>+ ' + (CITIES.length - r.length).toLocaleString() + ' more</b><span>being curated now, and they work live today</span></div>';
+    + '<div class="city more"><b>Any other town</b><span>builds live today, and more cities are curated every day</span></div>';
 }
 $("#cityGrid").addEventListener("click", e => { const b = e.target.closest("[data-slug]"); if(!b) return; const c = CITIES.find(x => x.s === b.dataset.slug); pickCity(c); $("#build").scrollIntoView({behavior:"smooth"}); });
 
