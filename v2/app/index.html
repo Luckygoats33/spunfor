@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>spunfor.me</title>
+<meta name="description" content="Your trip app: what's open now, your plan, a map, check-ins and answers on the go.">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="spunfor.me">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top" id="top">
+  <a class="brand" href="#home" aria-label="spunfor.me home"><span class="bmark" aria-hidden="true"></span><span class="bword">spunfor<i>.me</i></span></a>
+  <span class="tripname" id="tripName"></span>
+  <a class="holla" href="#now" id="hollaBtn"><span class="dot" aria-hidden="true"></span>Open now</a>
+</header>
+<main id="main" tabindex="-1"><div class="loading" id="boot"><b>Spinning up your trip…</b><span id="bootMsg">Loading the city</span></div></main>
+<nav class="tabs" aria-label="Sections">
+  <a href="#home" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg><span>Home</span></a>
+  <a href="#map" data-tab="map"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg><span>Map</span></a>
+  <a href="#explore" data-tab="explore"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Explore</span></a>
+  <a href="#saved" data-tab="saved"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Trip</span></a>
+  <a href="#more" data-tab="more"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></a>
+</nav>
+<button class="askfab" id="askFab" type="button" aria-label="Ask a question" aria-haspopup="dialog"><span id="askFabTxt">Ask</span></button>
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="vendor/leaflet/leaflet.js" defer></script>
+<script src="vendor/markercluster/leaflet.markercluster.js" defer></script>
+<script src="core.js" defer></script>
+<script src="trip.js" defer></script>
+<script src="ui.js" defer></script>
+<script src="ask.js" defer></script>
+</body>
+</html>
