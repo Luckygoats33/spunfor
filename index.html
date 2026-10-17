@@ -33,7 +33,7 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
       <h1><span class="l">Your trip,</span><span class="l"><em class="spunword">spun</em></span><span class="l">together.</span></h1>
       <p class="lead">For everyday travelers: chat for two minutes and get a trip app that knows what’s open, what you love and what to skip, for $29.99 one-time with your own colors and modules. For vacation planners: white-label client apps from $299/month (<a href="saas.html" target="_blank" rel="noopener">see SaaS</a>).</p>
       <div class="cta"><a class="btn big" href="#chat">Build my trip app <span class="arr" aria-hidden="true">→</span></a><a class="btn ghost big" href="demo/index.html" target="_blank" rel="noopener">Try the live demo</a></div>
-      <p class="fine honest"><b>What’s real today:</b> the demo is a sample New Orleans trip. It is not generated from your answers. Personalized trips for any city are coming, starting with the top 25 US cities plus Portland, OR.</p>
+      <p class="fine honest"><b>What’s real today:</b> your app is a starter plan built from your answers (category prompts and search links, no invented venues). The full hand-built demo is a sample New Orleans trip. Venue data for more cities, starting with the top 25 US cities plus Portland, OR, is coming.</p>
       <ul class="vows" aria-label="Highlights"><li>$29.99 one-time</li><li>Plans for planners</li><li>No sign-up</li><li>No tracking</li><li>Works on your phone</li></ul>
     </div>
     <div class="hero-art" aria-hidden="true">
@@ -111,32 +111,28 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
     <ol class="steps">
       <li class="reveal"><span class="num">1</span><h3>Tell us about the trip</h3><p>Flight, dates and where you’re going.</p></li>
       <li class="reveal"><span class="num">2</span><h3>Share your taste</h3><p>What you love, what you’d rather skip, plus budget, group and needs.</p></li>
-      <li class="reveal"><span class="num">3</span><h3>Preview, then unlock</h3><p>Personalized per-city apps are coming. Today you can preview the sample New Orleans app.</p></li>
+      <li class="reveal"><span class="num">3</span><h3>Preview, then unlock</h3><p>You get a starter plan built from your answers: a map, a day-by-day frame, guardrails and a checklist. Real venue data is still to come, and New Orleans has a full demo.</p></li>
     </ol>
   </div>
 </section>
 
 <section class="section chat-sec" id="chat">
   <div class="wrap">
-    <div class="sec-h reveal"><p class="k"><b>05</b> Start here</p><h2>Build your <em>trip app</em></h2><p class="sub">Just write it down, like a travel notebook. Answers stay in your browser. Heads up: today’s demo is a sample New Orleans trip and doesn’t use your answers yet. Personalized per-city generation is coming (top 25 US cities plus Portland, OR).</p></div>
-    <div class="bp reveal" role="region" aria-label="Spunfor trip chat">
+    <div class="sec-h reveal"><p class="k"><b>05</b> Start here</p><h2>Build your <em>trip app</em></h2>Just write it down, like a travel notebook. Answers stay in your browser. Your app is a starter plan from your answers; the demo is a sample New Orleans trip.</p></div>
+    <div class="bp bp1 reveal" role="region" aria-label="Tell us about your trip">
       <div class="bp-main">
-        <div class="bp-head"><strong>Trip notebook</strong><span class="progress" id="progress" aria-live="polite"></span><button type="button" class="link" id="restart">Restart</button></div>
-        <div class="log" id="log" role="log" aria-live="polite" aria-relevant="additions"></div>
-        <div class="chips" id="chips" hidden aria-label="Your answers so far"></div>
-        <div class="quick" id="quick"></div>
-        <form class="composer" id="form" autocomplete="off">
-          <label class="sr" for="input">Your answer</label>
-          <textarea id="input" rows="1" placeholder="Type your answer…" enterkeyhint="send"></textarea>
-          <button class="send" type="submit" aria-label="Send"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
-        </form>
+        <div class="bp-head"><strong>Tell us about your trip</strong><button type="button" class="link" id="restart">Start over</button></div>
+        <label class="sr" for="tripText">Tell us about your trip</label>
+        <textarea id="tripText" rows="4" maxlength="800" placeholder="e.g. leaving Friday to Portland, back Sunday. We love coffee and bookstores and want to avoid crowds."></textarea>
+        <p class="fine hint">Where, when, what you like, what to skip, budget, who’s coming, any needs. Write it any way you like; it sorts into chips you can tap to edit.</p>
+        <div class="chips" id="chips" hidden aria-live="polite" aria-label="What we understood"></div>
+        <p class="destnote" id="destNote" hidden></p>
+        <div class="more" id="more" hidden></div>
+        <div class="bp-actions"><button class="btn big lime" id="buildBtn" type="button">Build my trip app <span class="arr" aria-hidden="true">→</span></button><span id="afterBuild"></span></div>
+        <p class="msgline" id="buildMsg" role="status" aria-live="polite"></p>
       </div>
-      <aside class="dial" aria-hidden="true">
-        <svg viewBox="0 0 120 120"><circle class="dtrack" cx="60" cy="60" r="50"/><circle class="dfill" id="ringFill" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>
-        <div class="dnum"><b id="dialNo">1</b><span>of 8</span></div>
-      </aside>
     </div>
-    <p class="fine chat-fine">Spunfor never asks for your email in the chat and uses no analytics or cookies. Answers stay in this browser (localStorage) so your app can use them. When you finish, your preview opens in a new tab.</p>
+    <p class="fine chat-fine">Spunfor never asks for your email here and uses no analytics or cookies. Answers stay in this browser (localStorage) so your app can use them. When you finish, your preview opens in a new tab.</p>
   </div>
 </section>
 
@@ -158,5 +154,6 @@ window.SPUNFOR_CONFIG={price:29.99,currency:'USD',checkoutUrl:'',testMode:true,p
 <script src="cities.js"></script>
 <script src="parse.js"></script>
 <script src="app.js"></script>
+<script src="intake.js"></script>
 </body>
 </html>

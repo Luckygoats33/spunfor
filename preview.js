@@ -21,8 +21,9 @@ function destName(d){return (d&&d.dest&&String(d.dest).trim())||''}
 function isNola(d){return /new orleans|nola/i.test(destName(d))}
 function honestyNote(d){
   var n=destName(d);
-  if(!n||isNola(d))return '<b>Sample trip:</b> this is a sample New Orleans trip, so you can try every feature. Personalized apps for other cities are coming.';
-  return '<b>Heads up:</b> '+esc(n)+' is coming; this sample is New Orleans. Your answers are saved on this device for when '+esc(n)+' is ready.';
+  if(!n||isNola(d))return '<b>Sample trip:</b> the full demo is a sample New Orleans trip, so you can try every feature. Your answers also build a starter plan.';
+  var c=window.SpunforCities&&SpunforCities.find(n);
+  return '<b>Starter plan:</b> '+esc(n)+' opens as an app built from your answers (category prompts and search links). Real venue data for '+esc(n)+' is still to come'+(c?'.':', and it is not a launch city yet, so there is no map.');
 }
 function previewHtml(d,unlocked){
   var likes=list(d.likes).slice(0,4),avoid=list(d.dislikes).slice(0,3),dest=destName(d);

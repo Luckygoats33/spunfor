@@ -8,6 +8,13 @@ BASE = os.environ.get('E2E_BASE', 'http://127.0.0.1:8433/')
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/workspace/spunfor-shots/v4'
 os.makedirs(OUT, exist_ok=True)
 ANS = ['Delta 1234 MSY, arrives Sat 10:30am', '12 Mar to 15 Mar', 'New Orleans', 'jazz, beignets, history, hidden gems', 'loud Bourbon Street party crowds', '$$ moderate', '2 adults, birthday trip', 'vegetarian options']
+ANS_TEXT = 'Going to New Orleans, 12 Mar to 15 Mar.'
+ANS_FOLLOW = {'flight': 'Delta 1234 MSY, arrives Sat 10:30am', 'likes': 'jazz, beignets, history, hidden gems', 'dislikes': 'loud Bourbon Street party crowds', 'budget': '$$ moderate', 'group': '2 adults, birthday trip', 'needs': 'vegetarian options'}
+def intake(pg, text, follow=None, build=True):
+    pg.wait_for_selector('#tripText'); pg.fill('#tripText', text); pg.wait_for_timeout(450)
+    for k, v in (follow or {}).items():
+        if pg.locator(f'#mf-{k}').count(): pg.fill(f'#mf-{k}', v)
+    if build: pg.click('#buildBtn')
 res = []
 def ok(name, cond, extra=''):
     res.append((name, bool(cond), extra)); print(('PASS ' if cond else 'FAIL ') + name, extra)
@@ -62,11 +69,10 @@ with sync_playwright() as p:
         sp.close()
         pg.screenshot(path=f'{OUT}/landing-full-{tag}.png', full_page=True)
         ok(f'{W} landing contrast', not (c := pg.evaluate(CONTRAST)), str(c))
-        for a in ANS:
-            pg.wait_for_selector('#input:not([disabled])', timeout=8000); pg.fill('#input', a); pg.press('#input', 'Enter'); pg.wait_for_timeout(450)
-        pg.wait_for_function("document.getElementById('dialNo').textContent.trim()=='✓'", timeout=15000)
-        ok(f'{W} dial completes', pg.inner_text('#dialNo').strip() == '✓')
+        intake(pg, ANS_TEXT, ANS_FOLLOW, build=False)
+        ok(f'{W} composer chips: New Orleans + resolved dates', 'New Orleans' in pg.inner_text('#chips') and '2027' not in pg.inner_text('#chips') and '→' in pg.inner_text('#chips'), pg.inner_text('#chips'))
         pg.locator('#chat').scroll_into_view_if_needed(); pg.wait_for_timeout(500); pg.screenshot(path=f'{OUT}/chat-{tag}.png')
+        pg.click('#buildBtn')
         home = pg
         pg = pgs[-1] if (pgs := [x for x in ctx.pages if 'preview.html' in x.url]) else None
         for _ in range(30):
@@ -98,8 +104,7 @@ with sync_playwright() as p:
         # promo "goat" path in a fresh context
         c2 = b.new_context(viewport={'width': W, 'height': H}); p2 = c2.new_page()
         p2.goto(BASE + 'index.html'); p2.wait_for_timeout(900)
-        for a in ANS:
-            p2.wait_for_selector('#input:not([disabled])'); p2.fill('#input', a); p2.press('#input', 'Enter'); p2.wait_for_timeout(550)
+        intake(p2, ANS_TEXT, ANS_FOLLOW)
         for _ in range(30):
             q2 = next((x for x in c2.pages if 'preview.html' in x.url), None)
             if q2: break
@@ -164,8 +169,7 @@ with sync_playwright() as p:
         ctx = b.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page()
         if blocked: pg.add_init_script("window.open=function(){return null}")
         pg.goto(BASE + 'index.html'); pg.wait_for_timeout(900)
-        for a in ['We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.', 'Skip', 'Skip']:
-            pg.wait_for_selector('#input:not([disabled])'); pg.fill('#input', a); pg.press('#input', 'Enter'); pg.wait_for_timeout(700)
+        intake(pg, 'We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.')
         pv = None
         for _ in range(40):
             pv = next((x for x in ctx.pages if 'preview.html' in x.url), None)
@@ -175,58 +179,63 @@ with sync_playwright() as p:
         ok(f'portland {tagp}: preview opened ' + ('same tab (popup blocked fallback)' if blocked else 'in new tab'), pv is not None and ((pv is pg) if blocked else (pv is not pg)))
         pv.wait_for_selector('#unlockBtn'); pt = pv.inner_text('#result'); dd = pv.evaluate("Object.fromEntries([...document.querySelectorAll('.spec dl > div')].map(d=>[d.querySelector('dt').textContent,d.querySelector('dd').textContent]))")
         ok(f'portland {tagp}: fields separated', dd.get('Flight','').lower().startswith('we fly alaska') and 'vegetarian' in dd.get('Needs','').lower() and 'vegetarian' not in dd.get('Flight','').lower() and 'coffee' in dd.get('Likes','').lower() and 'coffee' not in dd.get('Flight','')+dd.get('Needs','') and 'crowds' in dd.get('Avoid','') and 'crowds' not in dd.get('Likes',''), str(dd))
-        ok(f'portland {tagp}: honesty note', 'Portland, OR is coming; this sample is New Orleans' in pv.inner_text('#honestNote') or 'Portland' in pv.inner_text('#honestNote') and 'sample is New Orleans' in pv.inner_text('#honestNote'), pv.inner_text('#honestNote'))
+        ok(f'portland {tagp}: honesty note (starter plan, venue data to come)', 'Starter plan' in pv.inner_text('#honestNote') and 'Portland' in pv.inner_text('#honestNote') and 'venue data' in pv.inner_text('#honestNote'), pv.inner_text('#honestNote'))
         ok(f'portland {tagp}: empty fields omitted', not re.search('none given|not specified|Budget|Group', pt))
         pv.screenshot(path=f'{OUT}/preview-portland-{tagp}.png')
         pv.wait_for_timeout(1700); pv.fill('#promo','goat'); pv.click('#applyPromo'); pv.click('#freeBtn'); pv.wait_for_selector('#openApp', timeout=8000)
         ok(f'portland {tagp}: modules/theme saved for demo', pv.evaluate('!!localStorage.getItem("spunfor.modules")&&!!localStorage.getItem("spunfor.theme")'))
         ctx.close()
-    # ---- intake: parse first answer, pre-fill, never re-ask, chips to edit ----
-    def drive(answers, extra_skip=True):
-        c = b.new_context(viewport={'width': 390, 'height': 844}); q = c.new_page(); q.add_init_script("window.open=function(){return {closed:false}}")
-        q.goto(BASE + 'index.html'); q.wait_for_timeout(700); phs = []
-        for a in answers:
-            q.wait_for_selector('#input:not([disabled])'); phs.append(q.get_attribute('#input', 'placeholder') or ''); q.fill('#input', a); q.press('#input', 'Enter'); q.wait_for_timeout(750)
-        asked = []; n = 0
-        while extra_skip and q.evaluate("document.getElementById('dialNo').textContent.trim()") != '✓' and n < 9:
-            q.wait_for_selector('#input:not([disabled])'); asked.append(q.evaluate("[...document.querySelectorAll('#log .msg.bot')].pop().textContent")); phs.append(q.get_attribute('#input', 'placeholder') or '')
-            q.fill('#input', 'skip'); q.press('#input', 'Enter'); q.wait_for_timeout(700); n += 1
-        import json as _j
-        trip = _j.loads(q.evaluate("localStorage.getItem('spunfor.trip')") or '{}')
-        return c, q, trip, asked, phs
-    c, q, trip, asked, phs = drive(['leaving friday to portland til sunday'])
-    bots = q.evaluate("[...document.querySelectorAll('#log .msg.bot')].map(e=>e.textContent)"); users = q.evaluate("[...document.querySelectorAll('#log .msg.user')].map(e=>e.textContent)")
-    ok('intake "leaving friday to portland til sunday": dest Portland, dates Fri to Sun, nothing copied', trip.get('dest') == 'Portland' and trip.get('dates') == 'Fri to Sun' and 'flight' not in trip and 'likes' not in trip, str(trip))
-    ok('intake: dates/destination/flight never re-asked', not any(re.search('travel dates|Where are you going|flight details', x) for x in asked) and len(users) == 1 + len(asked), str(asked))
-    ok('intake: no question repeated', len(set(bots)) == len(bots), str(bots))
-    ok('intake: placeholders never show New Orleans as an answer', not any('new orleans' in x.lower() for x in phs), str(phs))
-    ok('intake: raw sentence only appears as the user bubble', sum(1 for x in bots if 'leaving friday' in x.lower()) == 0)
-    ok('intake: confirmation chips shown (Portland, Fri to Sun)', 'Portland' in q.inner_text('#chips') and 'Fri to Sun' in q.inner_text('#chips'))
-    q.evaluate("document.getElementById('chat').scrollIntoView()"); q.wait_for_timeout(300); q.screenshot(path=f'{OUT}/intake-chips-390.png')
+    # ---- ITEM 4: single-box intake with live chips ----
+    def compose(text, follow=None, build=False):
+        c = b.new_context(viewport={'width': 390, 'height': 844}); q = c.new_page(); q.add_init_script("window.open=function(){return {closed:false}}"); q.add_init_script("window.__spunforToday='2026-10-15T12:00:00'")
+        q.goto(BASE + 'index.html'); q.wait_for_timeout(600); intake(q, text, follow, build=build)
+        chips = q.evaluate("Object.fromEntries([...document.querySelectorAll('#chips .chip[data-edit]')].map(c=>[c.dataset.edit,c.textContent.replace(/^[^ ]+( [^ ]+)? ?/,'')]))")
+        return c, q, chips
+    def vals(q): return q.evaluate("window.SpunforIntake.values()")
+    c, q, ch = compose('leaving friday to portland til sunday')
+    v = vals(q)
+    ok('composer "leaving friday to portland til sunday": Portland, OR + Fri Oct 16 -> Sun Oct 18 (today 2026-10-15)', v.get('dest') == 'Portland, OR' and 'flight' not in v and 'Fri Oct 16 → Sun Oct 18' in q.inner_text('#chips'), str(v) + q.inner_text('#chips'))
+    ok('composer: follow-ups only for what is missing (no dest/dates row, has likes/avoid/budget/group/needs)', q.locator('#mf-dest').count() == 0 and q.locator('#mf-dates').count() == 0 and all(q.locator(f'#mf-{k}').count() == 1 for k in ('likes', 'dislikes', 'budget', 'group', 'needs')))
+    ok('composer: launch city note shown', 'launch city' in q.inner_text('#destNote'))
+    q.screenshot(path=f'{OUT}/intake-chips-390.png')
+    q.click('#chips [data-edit=dest]'); q.wait_for_selector('#chipEdit'); ok('composer: chip tap opens editor prefilled', q.input_value('#chipEdit') == 'Portland, OR')
+    q.fill('#chipEdit', 'seattle'); q.press('#chipEdit', 'Enter'); q.wait_for_timeout(300)
+    ok('composer: edited chip -> Seattle (validated launch city), survives further typing', 'Seattle, WA' in q.inner_text('#chips'))
+    q.fill('#tripText', 'leaving friday to portland til sunday and we love jazz'); q.wait_for_timeout(450)
+    ok('composer: edited destination is not overwritten by new typing, likes added live', 'Seattle, WA' in q.inner_text('#chips') and 'jazz' in q.inner_text('#chips'))
+    q.click('#chips [data-edit=dates]'); q.wait_for_selector('#chipEdit'); q.click('#chips [data-rm=dates]'); q.wait_for_timeout(200)
+    ok('composer: chip can be removed (dates row comes back as a follow-up)', 'Dates' not in q.inner_text('#chips') and q.locator('#mf-dates').count() == 1)
     c.close()
-    c, q, trip, asked, phs = drive(['We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.'])
-    ok('intake long sentence: every field only its own part, only budget+group asked', trip.get('flight', '').startswith('We fly Alaska') and trip.get('dest') == 'Portland, OR' and trip.get('dates') == 'Oct 3 to Oct 7' and trip.get('likes') == 'coffee, bookstores and food carts' and trip.get('dislikes') == 'crowds and early mornings' and trip.get('needs') == 'Vegetarian options' and len(asked) == 2 and 'budget' in asked[0].lower() and 'traveling' in asked[1].lower(), str(trip) + str(asked))
+    c, q, ch = compose('We fly Alaska AS 123 into PDX on Friday. We are going to Portland, OR from Oct 3 to Oct 7. I love coffee, bookstores and food carts. I want to avoid crowds and early mornings. We need vegetarian options.')
+    v = vals(q)
+    ok('composer long sentence: every field only its own part', v.get('flight', '').startswith('We fly Alaska') and v.get('dest') == 'Portland, OR' and v.get('likes') == 'coffee, bookstores and food carts' and v.get('dislikes') == 'crowds and early mornings' and v.get('needs') == 'Vegetarian options', str(v))
+    ok('composer long sentence: dates Oct 3-7 resolved to the next occurrence (2027, year rollover)', 'Sun Oct 3 → Thu Oct 7' in q.inner_text('#chips'), q.inner_text('#chips'))
+    ok('composer long sentence: only budget and group asked', q.locator('#more .mrow').count() == 2 and q.locator('#mf-budget').count() == 1 and q.locator('#mf-group').count() == 1)
     c.close()
-    c, q, trip, asked, phs = drive(['pdx next weekend'])
-    ok('intake "pdx next weekend": Portland, OR + Next weekend', trip.get('dest') == 'Portland, OR' and trip.get('dates') == 'Next weekend' and not any('travel dates' in x or 'Where are you going' in x for x in asked), str(trip))
+    c, q, ch = compose('pdx next weekend'); v = vals(q)
+    ok('composer "pdx next weekend": Portland, OR + Fri Oct 23 -> Sun Oct 25', v.get('dest') == 'Portland, OR' and 'Fri Oct 23 → Sun Oct 25' in q.inner_text('#chips'), q.inner_text('#chips'))
     c.close()
-    c, q, trip, asked, phs = drive(['idk'], extra_skip=False)
-    nxt = q.evaluate("[...document.querySelectorAll('#log .msg.bot')].pop().textContent")
-    ok('intake "idk": nothing captured, flight not re-asked, dates asked next', trip == {} and 'travel dates' in nxt and q.locator('#chips .chip').count() == 0, nxt)
-    n0 = q.locator('#log .msg').count(); q.fill('#input', '   '); q.press('#input', 'Enter'); q.wait_for_timeout(400)
-    ok('intake empty input ignored', q.locator('#log .msg').count() == n0)
+    c, q, ch = compose('a week in June in Reykjavik'); v = vals(q)
+    ok('composer unknown city accepted but flagged "not yet supported", dates TBD', v.get('dest') == 'Reykjavik' and 'not yet supported' in q.inner_text('#destNote') and 'A week in Jun' in q.inner_text('#chips'), q.inner_text('#destNote') + q.inner_text('#chips'))
+    q.screenshot(path=f'{OUT}/intake-unknown-390.png'); c.close()
+    c, q, ch = compose('idk'); ok('composer "idk": no chips, destination row required', q.locator('#chips .chip').count() == 0 and q.locator('#mf-dest').count() == 1)
+    q.click('#buildBtn'); q.wait_for_timeout(300); ok('composer: Build without a destination is blocked with a clear message', 'destination' in q.inner_text('#buildMsg').lower() and q.evaluate("document.activeElement.id") == 'mf-dest')
+    q.fill('#mf-dest', 'pdx'); q.click('#buildBtn'); q.wait_for_timeout(500)
+    import json as _j
+    trip = _j.loads(q.evaluate("localStorage.getItem('spunfor.trip')") or '{}')
+    ok('composer: typed destination "pdx" validated to Portland, OR and saved', trip.get('dest') == 'Portland, OR' and trip.get('cityKnown') is True, str(trip))
     c.close()
-    c, q, trip, asked, phs = drive(['leaving friday to portland til sunday'], extra_skip=False)
-    q.click('#chips .chip[data-k=dest]'); q.wait_for_selector('#input:not([disabled])'); ok('intake chip edit prefills the field', q.input_value('#input') == 'Portland')
-    q.fill('#input', 'seattle'); q.press('#input', 'Enter'); q.wait_for_timeout(500)
-    ok('intake chip edit updates destination', 'Seattle' in q.inner_text('#chips') and 'Portland' not in q.inner_text('#chips'))
-    c.close()
-    c, q, trip, asked, phs = drive(['lving fri 2 portland thru sun w/ my wife'])
-    ok('intake typos/lowercase ("lving fri 2 portland thru sun w/ my wife")', trip.get('dest') == 'Portland' and trip.get('dates') == 'Fri to Sun' and 'wife' in trip.get('group', ''), str(trip))
-    c.close()
-    c, q, trip, asked, phs = drive(['not booked yet', 'Oct 3-7', 'Portland, OR', 'coffee, I am vegetarian and travelling with my wife', 'crowds'])
-    ok('intake later answer carrying a need/group keeps likes clean', trip.get('likes') == 'coffee' and trip.get('needs') == 'Vegetarian' and 'wife' in trip.get('group', '') and trip.get('dislikes') == 'crowds', str(trip))
-    c.close()
+    c, q, ch = compose('   '); q.click('#buildBtn'); q.wait_for_timeout(200); ok('composer empty input: nothing built, friendly message', 'tell us' in q.inner_text('#buildMsg').lower() and not q.evaluate("localStorage.getItem('spunfor.trip')")); c.close()
+    c, q, ch = compose('lving fri 2 portland thru sun w/ my wife'); v = vals(q)
+    ok('composer typos/lowercase ("lving fri 2 portland thru sun w/ my wife")', v.get('dest') == 'Portland, OR' and 'Fri Oct 16 → Sun Oct 18' in q.inner_text('#chips') and 'wife' in v.get('group', ''), str(v)); c.close()
+    c, q, ch = compose('trip to Austin Oct 20-25 with the kids, budget is $150/day', build=True)
+    trip = _j.loads(q.evaluate("localStorage.getItem('spunfor.trip')") or '{}')
+    ok('composer: build saves resolved start/end/label + validated city', trip.get('dest') == 'Austin, TX' and trip.get('start') == '2026-10-20' and trip.get('end') == '2026-10-25' and trip.get('dateLabel') == 'Tue Oct 20 → Sun Oct 25' and trip.get('budget') == '$150/day', str(trip)); c.close()
+    for w in (390, 320):
+        c = b.new_context(viewport={'width': w, 'height': 700}); q = c.new_page(); q.goto(BASE + 'index.html'); q.wait_for_timeout(500); intake(q, 'We fly Alaska AS 123 into PDX on Friday. Going to Portland, OR Oct 3 to Oct 7. I love coffee, bookstores and food carts. Avoid crowds.', build=False)
+        q.wait_for_timeout(1300)
+        ok(f'{w} composer with chips + follow-ups: no hscroll', q.evaluate('document.documentElement.scrollWidth<=innerWidth'), str(q.evaluate('document.documentElement.scrollWidth')))
+        q.evaluate("document.querySelector('.bp').scrollIntoView()"); q.screenshot(path=f'{OUT}/intake-chips-{w}.png'); c.close()
     # ---- ITEM 1 + 3: personalized trip app, theme + modules + sections ----
     import json as _j2
     def seed(pg, trip, extra=None):

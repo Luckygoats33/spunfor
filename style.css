@@ -344,3 +344,33 @@ a.m-btn{text-decoration:none}
 .chip{background:var(--lime);color:var(--ink);border:2px solid var(--ink);border-radius:99px;padding:7px 14px;font:600 .88rem var(--body);cursor:pointer;min-height:40px;text-align:left}
 .chip b{font-family:var(--disp);font-weight:800;font-size:.72rem;letter-spacing:-.01em;text-transform:uppercase;margin-right:4px}
 .chip:hover,.chip:focus-visible{background:var(--bone);outline:3px solid var(--tom);outline-offset:2px}
+
+/* single-box intake */
+.bp.bp1{display:block}
+#tripText{width:100%;resize:vertical;min-height:120px;background:var(--bone);color:var(--ink);border:3px solid var(--bone);border-radius:24px;padding:16px 20px;font:600 1.05rem/1.45 var(--body)}
+#tripText:focus{outline:none;border-color:var(--lime)}
+#tripText::placeholder{color:#6d6a5f}
+.bp .hint{color:var(--mute-d);margin:10px 2px 0}
+.chip.warn{background:var(--tom);color:var(--ink)}
+.chip.editing{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;background:var(--bone)}
+.chip.editing input{min-width:0;width:min(220px,48vw);border:0;background:transparent;font:600 .9rem var(--body);color:var(--ink);padding:6px 4px}
+.chip.editing input:focus{outline:2px solid var(--ink);border-radius:8px}
+.chip-ok,.chip-x{border:0;background:var(--ink);color:var(--lime);border-radius:99px;min-width:34px;min-height:34px;font-weight:800;cursor:pointer}
+.destnote{margin:10px 2px 0;font-weight:600;font-size:.92rem;color:var(--lime)}
+.more{margin-top:14px;display:grid;gap:12px}
+.more-h{font:600 .72rem var(--mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--mute-d);margin:0}
+.mrow label{display:block;font-weight:700;font-size:.92rem;margin:0 0 4px}
+.mrow label i{font-style:normal;font:600 .66rem var(--mono,monospace);background:var(--tom);color:var(--ink);border-radius:99px;padding:2px 8px;margin-left:6px;text-transform:uppercase}
+.mrow-in{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mrow input{flex:1 1 220px;min-width:0;min-height:46px;background:var(--bone);color:var(--ink);border:3px solid var(--bone);border-radius:16px;padding:8px 16px;font:600 1rem var(--body)}
+.mrow input:focus{outline:none;border-color:var(--lime)}
+.mrow input::placeholder{color:#6d6a5f}
+.mq{display:flex;flex-wrap:wrap;gap:6px}
+.mq button{background:transparent;border:2px solid var(--lime);color:var(--lime);border-radius:99px;padding:6px 14px;font:700 .85rem var(--body);cursor:pointer;min-height:40px}
+.mq button:hover{background:var(--lime);color:var(--ink)}
+.bp-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:18px}
+#buildMsg{margin:10px 2px 0}
+.chips[hidden],.more[hidden],.destnote[hidden]{display:none!important}
+.chips .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.chip.editing{max-width:100%}
+html,body{overflow-x:clip}

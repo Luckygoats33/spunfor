@@ -112,7 +112,7 @@ function parseTrip(text){
   var out={},src=String(text||'').trim().replace(/\bw\/\s*/gi,'with ').replace(/([a-z])\s+2\s+(?=[a-z])(?!(?:adults?|people|nights?|days?|of)\b)/gi,'$1 to ');
   if(!src)return out;
   var oneish=src.split(/\s+/).length<=4;
-  var clauses=src.split(/[.;!?\n]+|,\s*(?=(?:and\s+)?(?:i|we|also|but|my)\b)/i).map(function(c){return c.replace(/^\s*(and|but|also|then|plus|so)\s+/i,'').trim()}).filter(Boolean);
+  var clauses=src.split(/[.;!?\n]+|,\s*(?=(?:and\s+)?(?:i|we|also|but|my|want|wanna|hate|avoid|dislike|don'?t|do not|need|can'?t|no)\b)/i).map(function(c){return c.replace(/^\s*(and|but|also|then|plus|so)\s+/i,'').trim()}).filter(Boolean);
   clauses.forEach(function(c0){
     var t=c0,m,r;
     if(IDK.test(t))return;
