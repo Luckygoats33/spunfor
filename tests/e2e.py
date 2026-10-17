@@ -212,7 +212,9 @@ with sync_playwright() as p:
         ok(f'wheel[{rm}]: results prefill intake chips', 'Lisbon, Portugal' in ch and 'food' in ch.lower() and 'Couple' in ch and 'Mid-range' in ch, ch)
         q.wait_for_timeout(800)
         ok(f'wheel[{rm}]: unknown typed city flagged as not yet supported', 'not yet' in q.inner_text('#destNote').lower())
-        ok(f'wheel[{rm}]: focus lands on Build', q.evaluate("document.activeElement&&document.activeElement.id")=='buildBtn')
+        try: q.wait_for_function("document.activeElement&&document.activeElement.id=='buildBtn'", timeout=3000); fo = True
+        except Exception: fo = False
+        ok(f'wheel[{rm}]: focus lands on Build', fo)
         q.click('#buildBtn'); q.wait_for_timeout(500)
         ok(f'wheel[{rm}]: build saves trip from wheel inputs', 'Lisbon' in (q.evaluate("localStorage.getItem('spunfor.trip')") or ''))
         # focus trap + escape
