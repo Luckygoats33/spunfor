@@ -8,9 +8,10 @@
   var root = me ? new URL(".", me).href : location.origin + "/spunfor/";
   var path = location.pathname;
   var here = /\/v2\/app\//.test(path) ? "app" : /\/v2\//.test(path) ? "v2" : "v1";
-  var STYLES = [["spun", "Spun"], ["postcard", "Postcard"], ["night", "Night Out"], ["swiss", "Swiss"], ["field", "Field Guide"], ["cinema", "Cinematic"], ["editorial", "Editorial"], ["urban", "After Dark"]];
+  var STYLES = [["spun", "Spun"], ["swiss", "Swiss"]];
   var cur = "swiss";
   try{ cur = new URLSearchParams(location.search).get("s") || localStorage.getItem("sf.siteStyle") || "swiss"; }catch(e){}
+  if(cur !== "spun") cur = "swiss";
   var lastTrip = "";
   try{ var mine = JSON.parse(localStorage.getItem("sf.myTrips") || "[]"); if(mine[0] && mine[0].link) lastTrip = mine[0].link; }catch(e){}
   var appHref = lastTrip || root + "v2/#build";

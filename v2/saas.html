@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-style="swiss">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spunfor for vacation planners · white-label trip apps</title>
+<meta name="description" content="Spunfor Business: white-label trip apps for vacation planners and agencies.">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="site.css">
+<script>try{var s=new URLSearchParams(location.search).get("s")||localStorage.getItem("sf.siteStyle");if(s!=="spun"){s="swiss";var k=localStorage.getItem("sf.siteStyle");if(k&&k!=="spun")localStorage.setItem("sf.siteStyle","swiss");}document.documentElement.setAttribute("data-style",s);}catch(e){}</script>
+</head>
+<body>
+<script src="../bar.js"></script>
+<header class="nav">
+  <a class="logo" href="./" aria-label="spunfor.me home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path class="pin" d="M32 61C17.5 46.5 9 36.5 9 25.5a23 23 0 0 1 46 0C55 36.5 46.5 46.5 32 61Z"/><path class="sp" d="M32 26.5m-2.2 0a2.2 2.2 0 1 0 4.4 0a4.6 4.6 0 1 0 -9.2 0a7 7 0 1 0 14 0a9.4 9.4 0 1 0 -18.8 0"/><circle class="dot" cx="32" cy="26.5" r="2.4"/></svg></span><span class="word">spunfor<i>.me</i></span></a>
+  <nav aria-label="Primary"><a href="./#features">Features</a><a href="./#app">The app</a><a href="./#faq">FAQ</a><a class="saas-tab" href="saas.html" aria-current="page">SaaS</a></nav>
+  <a class="btn small" href="./#build">Build a trip app</a>
+</header>
+<main id="top">
+<section class="hero"><div class="wrap">
+  <p class="eyebrow"><span class="pill">Spunfor Business</span> For vacation planners and agencies</p>
+  <h1>Planning trips for <em>clients</em>?</h1>
+  <p class="lead">Give every client their own trip app under your brand: what’s open, a plan for every day, a map and check-ins, without building anything.</p>
+  <p class="fine honest" role="note"><b>TEST MODE:</b> pricing preview only, no billing is set up. Nothing on this page charges you or signs you up.</p>
+</div></section>
+<section class="sec planners"><div class="wrap planners-in">
+  <div class="feats">
+    <article class="feat"><span class="fi" aria-hidden="true">◐</span><h3>White-label</h3><p>Your name, your colors, no Spunfor branding on client apps.</p></article>
+    <article class="feat"><span class="fi" aria-hidden="true">⇄</span><h3>Client sharing</h3><p>Send each client a link to their own trip app. It adds to their home screen.</p></article>
+    <article class="feat"><span class="fi" aria-hidden="true">▤</span><h3>Reusable templates</h3><p>Save the trips you sell again and again and start each new itinerary ahead.</p></article>
+  </div>
+  <div class="plan-card" id="planCard">
+    <p class="plan-price"><b>from $299</b> /month</p>
+    <p class="fine">Business plan · TEST MODE pricing preview, no billing set up.</p>
+    <form id="bizForm" class="bizform" autocomplete="on">
+      <label class="fl">Your name<input name="name" type="text" required maxlength="80"></label>
+      <label class="fl">Agency<input name="org" type="text" maxlength="80"></label>
+      <label class="fl">Trips a month<select name="vol"><option>1–10</option><option>11–50</option><option>50+</option></select></label>
+      <button class="btn" type="submit">Talk to us <span aria-hidden="true">→</span></button>
+      <p class="fine">This opens your own email app with a drafted note. Nothing is sent or stored by this page.</p>
+    </form>
+  </div>
+</div></section>
+</main>
+<footer class="foot"><div class="wrap foot-in"><span class="word">spunfor<i>.me</i></span><p class="fine foot-links"><a href="./">Home</a> · <a href="../demo/index.html" target="_blank" rel="noopener">New Orleans demo</a></p></div></footer>
+<script>
+document.getElementById("bizForm").addEventListener("submit",function(e){e.preventDefault();var f=new FormData(this);
+var body="Name: "+f.get("name")+"\nAgency: "+(f.get("org")||"")+"\nTrips a month: "+f.get("vol");
+location.href="mailto:business@spunfor.example?subject="+encodeURIComponent("Spunfor Business")+"&body="+encodeURIComponent(body);});
+</script>
+</body>
+</html>

@@ -138,14 +138,16 @@ async function fillWeather(){
 /* ---------- OPEN NOW ---------- */
 function vNow(){
   const q = SF.lc(S.q), cats = Object.keys(SF.city.CATS);
-  let ps = SF.city.P.filter(p => SF.statusAt(p).state === "open");
+  const N0 = SF.cityNow(), N = S.at ? {dow:(N0.dow + (+S.at < N0.mins ? 1 : 0)) % 7, mins:+S.at, ymd:N0.ymd} : N0;
+  let ps = SF.city.P.filter(p => SF.statusAt(p, N).state === "open");
   if(S.f !== "all") ps = ps.filter(p => p.c.includes(S.f));
   if(q) ps = ps.filter(p => SF.lc(p.n + " " + (p.note || "") + " " + (p.a || "")).includes(q));
   ps.sort(byDist);
-  const N = SF.cityNow();
-  return '<section class="hero"><p class="k">Open now · ' + esc(SF.DOWL[N.dow].slice(0, 3) + " " + SF.fmtM(N.mins)) + ' in ' + esc(SF.city.city.name) + '</p><h1>What\'s open<br><em>right now.</em></h1></section>'
+  const AT = [["", "Right now"], [480, "8 am"], [720, "Noon"], [900, "3 pm"], [1080, "6 pm"], [1260, "9 pm"], [1380, "11 pm"], [60, "1 am"]];
+  return '<section class="hero"><p class="k">' + (S.at ? "Open at " : "Open now · ") + esc(SF.DOWL[N.dow].slice(0, 3) + " " + SF.fmtM(N.mins)) + ' in ' + esc(SF.city.city.name) + '</p><h1>What\'s open<br><em>' + (S.at ? "at " + esc(SF.fmtM(N.mins)) + "." : "right now.") + '</em></h1></section>'
+    + '<div class="search"><label class="sr" for="nowAt">Open at the time you pick</label><select id="nowAt" aria-label="Open at the time you pick">' + AT.map(a => '<option value="' + a[0] + '"' + (String(S.at || "") === String(a[0]) ? " selected" : "") + '>' + (a[0] === "" ? a[1] : "At " + a[1] + " (next)") + '</option>').join("") + '</select></div>'
     + '<div class="search"><label class="sr" for="nowQ">Search open places</label><input id="nowQ" type="search" placeholder="Search open places" value="' + esc(S.q) + '"></div>'
-    + '<div class="chips" role="group" aria-label="Filter by type"><button class="chip" type="button" data-f="all" aria-pressed="' + (S.f === "all") + '">All</button>' + cats.map(c => { const n = SF.city.P.filter(p => p.c.includes(c) && SF.statusAt(p).state === "open").length; return n ? '<button class="chip" type="button" data-f="' + c + '" aria-pressed="' + (S.f === c) + '">' + esc(SF.city.CATS[c]) + ' <span class="n">' + n + '</span></button>' : ""; }).join("") + '</div>'
+    + '<div class="chips" role="group" aria-label="Filter by type"><button class="chip" type="button" data-f="all" aria-pressed="' + (S.f === "all") + '">All</button>' + cats.map(c => { const n = SF.city.P.filter(p => p.c.includes(c) && SF.statusAt(p, N).state === "open").length; return n ? '<button class="chip" type="button" data-f="' + c + '" aria-pressed="' + (S.f === c) + '">' + esc(SF.city.CATS[c]) + ' <span class="n">' + n + '</span></button>' : ""; }).join("") + '</div>'
     + (ps.length ? '<div class="list">' + ps.map(p => row(p)).join("") + '</div>' : '<p class="empty">Nothing matching is open right now. Try All, or check <a href="#explore">Explore</a>.</p>')
     + '<p class="src">Hours come from ' + (SF.city.live ? "OpenStreetMap" : "OpenStreetMap and Wikidata") + ' and can be out of date. Places without listed hours are not shown here.</p>';
 }
@@ -327,6 +329,7 @@ SF.openPlace = function(id){
     + '<p class="st ' + stCls(st) + '" style="text-align:left;font-size:.95rem">' + esc(SF.statusText(st)) + (di ? '<span class="muted" style="font-weight:400"> · ' + esc(di.txt + " · " + SF.miles(di.m) + " from " + di.from) + '</span>' : '') + '</p>'
     + '<div class="btns"><a class="btn pri" href="' + esc(SF.dirUrl(p, di && di.mode === "car" ? "driving" : "walking")) + '" target="_blank" rel="noopener">Directions</a><a class="btn" href="' + esc(SF.appleUrl(p)) + '" target="_blank" rel="noopener">Apple Maps</a>' + (c ? '<a class="btn" href="' + esc(SF.uberUrl(c[0], c[1], p.n, p.ad)) + '" target="_blank" rel="noopener">Uber</a><a class="btn" href="' + esc(SF.lyftUrl(c[0], c[1])) + '" target="_blank" rel="noopener">Lyft</a>' : '') + '</div>'
     + '<div class="btns"><button class="btn" type="button" data-save="' + id + '" aria-pressed="' + saved + '">' + (saved ? "Saved ✓" : "Save") + '</button><button class="btn" type="button" data-visit="' + id + '" aria-pressed="' + vis + '">' + (vis ? "Visited ✓" : "Mark visited") + '</button><button class="btn" type="button" data-shareplace="' + id + '">Share</button></div>'
+    + (() => { const v = SF.tget("votes", {})[id] || 0; return '<div class="dayline" role="group" aria-label="Your vote on ' + esc(p.n) + '"><span class="small muted" style="align-self:center">Your vote</span><button class="chip" type="button" data-vote="' + id + '|1" aria-pressed="' + (v === 1) + '">👍 In</button><button class="chip" type="button" data-vote="' + id + '|-1" aria-pressed="' + (v === -1) + '">👎 Pass</button><span class="small muted" style="align-self:center">Saved on this phone</span></div>'; })()
     + (days.length ? '<div class="dayline" role="group" aria-label="Add to a day"><span class="small muted" style="align-self:center">Add to</span>' + days.map(d => '<button class="chip" type="button" data-addday="' + id + '|' + d.n + '">Day ' + d.n + '</button>').join("") + '</div>' : '')
     + (p.note ? '<p>' + esc(p.note.replace(/Hours: [^.]*\.?/, "").trim()) + '</p>' : '')
     + (rows ? '<table class="hrs"><caption class="sr">Opening hours</caption>' + rows.map(([d, t, i]) => '<tr' + (i === N.dow ? ' class="today"' : '') + '><td>' + d + '</td><td>' + esc(t) + '</td></tr>').join("") + '</table><p class="src">Listed hours from ' + esc(src === "osm" ? "OpenStreetMap" : (src || "map data")) + (gathered ? ", gathered " + esc(gathered) : "") + '. Not confirmed with the venue; check before you go.</p>' : (p.hoursRaw ? '<p class="small">Listed hours: ' + esc(p.hoursRaw) + '</p>' : '<p class="small muted">No hours listed. Call ahead.</p>'))
@@ -410,6 +413,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   if(e.target.id === "restoreIn" && e.target.files[0]){ SF.restoreBackup(e.target.files[0]); return; }
   if(e.target.id === "mRad"){ S.radius = +e.target.value; SF.render(); }
+  if(e.target.id === "nowAt"){ S.at = e.target.value; SF.render(); }
   if(e.target.id === "mCat"){ S.f = e.target.value; SF.render(); }
 });
 document.addEventListener("submit", e => {
@@ -433,4 +437,11 @@ document.addEventListener("click", e => {
 (function(){ let y = 0, t = null; window.addEventListener("scroll", () => { const f = $("#askFab"), ny = window.scrollY; if(!f) return; if(ny - y > 6 && ny > 120) f.classList.add("away"); else if(ny - y < -6) f.classList.remove("away"); y = ny; clearTimeout(t); t = setTimeout(() => f.classList.remove("away"), 900); }, {passive:true}); })();
 
 boot();
+/* group votes (restored from the V3 demo): one vote per place, stored on this phone only */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-vote]"); if(!b) return;
+  const [id, n] = b.dataset.vote.split("|"), v = SF.tget("votes", {});
+  v[id] = v[id] === +n ? 0 : +n; if(!v[id]) delete v[id]; SF.tset("votes", v);
+  SF.toast(v[id] === 1 ? "Voted in." : v[id] === -1 ? "Voted pass." : "Vote cleared."); SF.openPlace(id);
+});
 })();

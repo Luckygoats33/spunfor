@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="preload" href="../fonts/unbounded.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css">
-<script>try{var s=new URLSearchParams(location.search).get("s")||localStorage.getItem("sf.siteStyle");if(s)document.documentElement.setAttribute("data-style",s);}catch(e){}</script>
+<script>try{var s=new URLSearchParams(location.search).get("s")||localStorage.getItem("sf.siteStyle");if(s!=="spun"){s="swiss";var k=localStorage.getItem("sf.siteStyle");if(k&&k!=="spun")localStorage.setItem("sf.siteStyle","swiss");}document.documentElement.setAttribute("data-style",s);}catch(e){}</script>
 </head>
 <body>
 <a class="skip" href="#build">Skip to the trip builder</a>
@@ -20,7 +20,7 @@
 
 <header class="nav">
   <a class="logo" href="#top" aria-label="spunfor.me home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path class="pin" d="M32 61C17.5 46.5 9 36.5 9 25.5a23 23 0 0 1 46 0C55 36.5 46.5 46.5 32 61Z"/><path class="sp" d="M32 26.5m-2.2 0a2.2 2.2 0 1 0 4.4 0a4.6 4.6 0 1 0 -9.2 0a7 7 0 1 0 14 0a9.4 9.4 0 1 0 -18.8 0"/><circle class="dot" cx="32" cy="26.5" r="2.4"/></svg></span><span class="word">spunfor<i>.me</i></span></a>
-  <nav aria-label="Primary"><a href="#features">Features</a><a href="#how">How it works</a><a href="#cities">Cities</a><a href="../demo/index.html" target="_blank" rel="noopener">Demo</a><a href="#faq">FAQ</a></nav>
+  <nav aria-label="Primary"><a href="#features">Features</a><a href="#app">The app</a><a href="#how">How it works</a><a href="#cities">Cities</a><a href="../demo/index.html" target="_blank" rel="noopener">Demo</a><a href="#faq">FAQ</a><a class="saas-tab" href="saas.html" target="_blank" rel="noopener">SaaS</a></nav>
   <a class="btn small" href="#build">Build my app</a>
 </header>
 
@@ -42,7 +42,9 @@
       </form>
       <div class="starters" role="group" aria-label="Start from a trip type"><span class="fine">Or start with:</span><button type="button" data-start="It's a couples getaway">Couples getaway</button><button type="button" data-start="It's a birthday trip">Birthday</button><button type="button" data-start="It's a family trip with the kids">Family</button><button type="button" data-start="It's a solo trip, just me">Solo</button><button type="button" data-start="It's a friends' weekend">Friends' weekend</button><button type="button" data-start="It's a road trip">Road trip</button></div>
       <div class="mytrips" id="myTrips" hidden></div>
-      <ul class="vows" aria-label="Highlights"><li>Free while in beta</li><li>No account</li><li>No tracking</li><li>Add it to your home screen</li></ul>
+      <ul class="vows" aria-label="Highlights"><li>Free while in beta</li><li>Plans for planners</li><li>No account</li><li>No tracking</li><li>Add it to your home screen</li></ul>
+      <p class="fine honest" id="honestNote" role="note"><b>What’s real today:</b> curated cities have hand-checked places, photos and hours; any other town is built live from OpenStreetMap, so it can be thinner. Hours can be out of date, so every place says where its hours came from. The New Orleans demo is a hand-built sample trip, not generated from your answers.</p>
+      <p class="fine planners-line">Vacation planner? White-label client apps are on the <a href="saas.html" target="_blank" rel="noopener">SaaS page</a>.</p>
     </div>
     <div class="hero-art">
       <div class="phone live" id="demoPhone"><iframe id="demoFrame" title="Live demo: a real Boston trip app you can tap through" loading="eager"></iframe></div>
@@ -51,6 +53,8 @@
     </div>
   </div>
 </section>
+
+<div class="ticker" aria-hidden="true"><div class="ticker-in"><span>Holla Holla</span><i>●</i><span>Surprise me</span><i>●</i><span>Walking ring</span><i>●</i><span>Passport</span><i>●</i><span>Your colors</span><i>●</i><span>Holla Holla</span><i>●</i><span>Surprise me</span><i>●</i><span>Walking ring</span><i>●</i><span>Passport</span><i>●</i><span>Your colors</span><i>●</i></div></div>
 
 <section class="strip" aria-label="Coverage">
   <div class="wrap strip-in">
@@ -70,7 +74,30 @@
       <article class="feat f3"><span class="fi" aria-hidden="true">✦</span><h3>Auto check-in &amp; passport</h3><p>Spend a minute somewhere and it lands in your journal, earns a stamp and tells you what's next.</p></article>
       <article class="feat f4"><span class="fi" aria-hidden="true">?</span><h3>Ask anything</h3><p>"Bagels near me?" Real places, hours and directions, right in the chat. No sending you off to search.</p></article>
       <article class="feat f5"><span class="fi" aria-hidden="true">✈</span><h3>Flights &amp; hotel built in</h3><p>Arrival times shape day one. One tap for a ride from the airport to the hotel door.</p></article>
-      <article class="feat f6"><span class="fi" aria-hidden="true">⇄</span><h3>Made for two (or six)</h3><p>Text the app to your travel partner. Share a recap or your location with one tap.</p></article>
+      <article class="feat f6"><span class="fi" aria-hidden="true">⇄</span><h3>Made for two (or six)</h3><p>Text the app to your travel partner. Share a recap or your location with one tap. Vote places in or out on your phone.</p></article>
+      <article class="feat f7"><span class="fi" aria-hidden="true">↻</span><h3>Surprise me</h3><p>Pick a vibe, how long you have, walk or ride. Get a mini route through places that are open the whole way.</p></article>
+      <article class="feat f8"><span class="fi" aria-hidden="true">◎</span><h3>Walking ring map</h3><p>See what’s within five to thirty minutes of you, or follow a day of your plan stop to stop.</p></article>
+      <article class="feat f9"><span class="fi" aria-hidden="true">◐</span><h3>Your own colors</h3><p>Pick an accent (or any color you like). Light, dark, or switch after sunset. Your passport and journal stay on your device.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="sec appsec" id="app">
+  <div class="wrap">
+    <div class="sec-h"><p class="eyebrow">See the app</p><h2>Pocket-sized, fast, honest.</h2><p class="lead small">Every place shows where its hours came from. Your saves, votes and journal stay on your device.</p></div>
+    <div class="demo-stage" id="demo" aria-label="Live demo">
+      <div class="demo-bar">
+        <div class="seg" role="group" aria-label="Demo view">
+          <button type="button" class="seg-b" id="segMobile" data-view="mobile" aria-pressed="true">Mobile</button>
+          <button type="button" class="seg-b" id="segDesktop" data-view="desktop" aria-pressed="false">Desktop</button>
+        </div>
+        <a class="btn small" id="demoNew" href="../demo/index.html" target="_blank" rel="noopener">Open demo in new window <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="demo-frame is-mobile" id="nolaFrame">
+        <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>Sample New Orleans trip · demo</span></div>
+        <iframe id="nolaIframe" src="../demo/index.html" title="Spunfor live demo: a sample New Orleans trip app" loading="lazy"></iframe>
+      </div>
+      <p class="fine demo-fine">Sample New Orleans trip, hand-built, not generated from your answers. The phone at the top is a real Boston app.</p>
     </div>
   </div>
 </section>
@@ -83,12 +110,13 @@
       <li><b>2</b><h3>What you're into</h3><p>Tap what you love and what to skip. Pick your colors and your assistant's vibe.</p></li>
       <li><b>3</b><h3>Open your app</h3><p>It spins up instantly. Add it to your home screen and text the link to whoever's coming.</p></li>
     </ol>
+    <p class="spin-row"><button type="button" class="btn big" id="spinBtn" aria-haspopup="dialog">Spin it <span class="arr" aria-hidden="true">↻</span></button><span class="fine">Not sure yet? Three spins pick a destination, a vibe and who’s going. You can override or type anything, and it only fills in the trip chat below.</span></p>
   </div>
 </section>
 
 <section class="sec build" id="build">
   <div class="wrap build-grid">
-    <div class="sec-h"><p class="eyebrow">Start here</p><h2>Build your trip app.</h2><p class="lead small">Just tell us about the trip, like you would a friend. Type it or say it. We’ll ask about anything missing.</p><p class="fine">Everything stays in your browser until you share your link.</p></div>
+    <div class="sec-h"><p class="eyebrow">Start here</p><h2>Build your trip app.</h2><p class="lead small">Just tell us about the trip, like you would a friend. Type it or say it. We’ll ask about anything missing.</p><p class="fine">Everything stays in your browser until you share your link. Spunfor never asks for your email here and uses no analytics or cookies.</p></div>
     <div class="chatwrap">
       <div class="chat" role="region" aria-label="Trip chat">
         <div class="chat-log" id="chatLog" aria-live="polite"></div>
@@ -127,6 +155,7 @@
       <fieldset class="bstep" data-step="5">
         <legend><span>5</span> Make it yours</legend>
         <div class="swatches" id="bColors" role="radiogroup" aria-label="App color"></div>
+        <label class="fl colorpick">Or any color<input id="bCustom" type="color" value="#E3000F" aria-label="Custom accent color"></label>
         <div class="row2"><label class="fl">Assistant's name<input id="bBot" type="text" value="Spun" maxlength="20"></label>
         <label class="fl">Assistant's vibe<select id="bVibe"><option value="friendly">Friendly local</option><option value="sassy">Dry and sassy</option><option value="hype">Hype friend</option><option value="calm">Calm and to the point</option></select></label></div>
       </fieldset>
@@ -152,6 +181,18 @@
   </div>
 </section>
 
+<section class="sec planners" id="planners">
+  <div class="wrap planners-in">
+    <div class="sec-h"><p class="eyebrow">For vacation planners</p><h2>Planning trips for clients?</h2><p class="lead small">Spunfor Business is for vacation planners and agencies: white-label apps under your brand, a shareable app for each client, and reusable trip templates so every new itinerary starts ahead.</p></div>
+    <div class="plan-card">
+      <p class="plan-price"><b>from $299</b> /month</p>
+      <p class="fine">Business plan · TEST MODE: pricing preview only, no billing is set up.</p>
+      <ul><li>White-label: your name, your colors, no Spunfor branding</li><li>Client sharing: send each client their own trip app</li><li>Reusable trip templates for the trips you sell again and again</li></ul>
+      <a class="btn" href="saas.html" target="_blank" rel="noopener">See the planners page <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</section>
+
 <section class="sec faq" id="faq">
   <div class="wrap">
     <div class="sec-h"><p class="eyebrow">FAQ</p><h2>Straight answers.</h2></div>
@@ -160,7 +201,9 @@
     <details><summary>Is my data private?</summary><p>Your trip lives in the link and in your phone's browser. No account, no analytics, no cookies. GPS is only used while the app is open, and your location only leaves your phone when you tap Send my location.</p></details>
     <details><summary>Can my travel partner see what I save?</summary><p>Send them your link and they get the same trip and plan. Saves and check-ins stay on each phone for now; live shared lists are coming.</p></details>
     <details><summary>Which cities?</summary><p>Fully curated cities have hand-checked places, photos and hours; the list grows every day as our collector works through every US city and town. Anywhere else, type it in and the app builds itself live from map data the first time you open it. Each city shows whether it is curated or live before you build.</p></details>
-    <details><summary>Plan trips for clients?</summary><p>White-label apps for travel planners are on our <a href="../saas.html" target="_blank" rel="noopener">planners page</a>.</p></details>
+    <details><summary>Plan trips for clients?</summary><p>White-label apps for travel planners are on our <a href="saas.html" target="_blank" rel="noopener">planners page</a>.</p></details>
+    <details><summary>What is the New Orleans demo?</summary><p>A hand-built sample trip app with every feature turned on, so you can try it. It is not generated from your answers. Open it in a <a href="../demo/index.html" target="_blank" rel="noopener">new window</a>.</p></details>
+    <details><summary>What does the Spin it wheel do?</summary><p>It only picks inputs (a destination, a vibe, who’s going) and drops them into the trip chat. It doesn’t invent places; you can change anything before you build.</p></details>
   </div>
 </section>
 </main>
@@ -168,6 +211,7 @@
 <footer class="foot">
   <div class="wrap foot-in">
     <span class="word">spunfor<i>.me</i></span>
+    <p class="fine foot-links"><a href="saas.html" target="_blank" rel="noopener">SaaS for planners</a> · <a href="../demo/index.html" target="_blank" rel="noopener">New Orleans demo</a> · <a href="#faq">FAQ</a></p>
     <p class="fine">Map data © OpenStreetMap contributors (ODbL). Photos via Wikimedia Commons, credited per photo. Weather by Open-Meteo (CC BY 4.0). Beta: places and hours can be wrong; check before you go.</p>
   </div>
 </footer>
@@ -176,5 +220,6 @@
 <script src="site.js"></script>
 <script src="../parse.js"></script>
 <script src="chat.js"></script>
+<script src="restore.js"></script>
 </body>
 </html>

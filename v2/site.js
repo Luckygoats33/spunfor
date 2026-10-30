@@ -6,7 +6,9 @@ const toast = msg => { const t = $("#toast"); t.textContent = msg; t.hidden = fa
 
 /* ---------- style switcher (top bar) ---------- */
 const root = document.documentElement;
+const STYLES = ["spun", "swiss"]; /* only two site styles; anything else (old saved choices) falls back to Swiss */
 function setStyle(s, save){
+  if(!STYLES.includes(s)){ s = "swiss"; try{ if(localStorage.getItem("sf.siteStyle") && !STYLES.includes(localStorage.getItem("sf.siteStyle"))) localStorage.setItem("sf.siteStyle", "swiss"); }catch(e){} }
   root.setAttribute("data-style", s);
   $$(".sb-opts button").forEach(b => b.setAttribute("aria-checked", String(b.dataset.s === s)));
   if(save){ try{ localStorage.setItem("sf.siteStyle", s); }catch(e){} const u = new URL(location.href); u.searchParams.set("s", s); history.replaceState(null, "", u); }
@@ -61,9 +63,6 @@ function autocomplete(input, list, onPick){
 /* ---------- live phone preview: real Boston places open right now ---------- */
 async function mock(){
   const j = await SF.getJSON("cities/boston.json", 10000); if(!j) return;
-  /* destination photography for the photo-led styles (Cinematic, After Dark): a credited Commons landmark shot */
-  const hero = j.P.filter(p => j.PHOTOS[p.id] && p.c.some(c => ["attraction", "nature", "history"].includes(c)))[0];
-  if(hero){ const ph = j.PHOTOS[hero.id]; document.documentElement.style.setProperty("--hero-img", 'url("' + ph.src.replace(/width=\d+/, "width=1600") + '")'); const cr = document.createElement("a"); cr.className = "hero-credit"; cr.href = ph.page; cr.target = "_blank"; cr.rel = "noopener"; cr.textContent = hero.n + " · " + ph.credit.replace(/^Photo: /, "").slice(0, 80); const hs = document.querySelector(".hero"); if(hs) hs.appendChild(cr); }
   const keep = SF.city; SF.city = j;
   const N = SF.cityNow(), hr = N.mins / 60;
   ($("#mockGreet") || {}).textContent = hr < 12 ? "morning" : hr < 17 ? "afternoon" : "evening";
@@ -137,6 +136,9 @@ $("#bLikes").addEventListener("click", e => { const b = e.target.closest("[data-
 
 /* colors */
 function renderColors(){ $("#bColors").innerHTML = COLORS.map(([c, ink, n]) => '<button type="button" role="radio" class="sw" style="--c:' + c + ';--ci:' + ink + '" data-c="' + c + '" aria-checked="' + (B.color === c) + '" aria-label="' + n + '"><span aria-hidden="true"></span>' + n + '</button>').join(""); }
+/* any color (restored from v1's custom accent): readable ink picked by luminance */
+function inkFor(hex){ const h = String(hex || "").replace("#", ""); if(h.length !== 6) return "#FFFFFF"; const l = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4)); return (.2126 * l[0] + .7152 * l[1] + .0722 * l[2]) > .4 ? "#0D0D0C" : "#FFFFFF"; }
+{ const cp = $("#bCustom"); if(cp) cp.addEventListener("input", () => { B.color = cp.value.toUpperCase(); renderColors(); }); }
 $("#bColors").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if(b){ B.color = b.dataset.c; renderColors(); } });
 
 /* build */
@@ -147,7 +149,7 @@ $("#builder").addEventListener("submit", e => {
   const arrive = $("#bArrive").value, depart = $("#bDepart").value || arrive;
   if(!arrive){ $("#bErr").textContent = "Add your arrival date."; $("#bArrive").focus(); return; }
   if(depart < arrive){ $("#bErr").textContent = "Your leave date is before your arrival date."; $("#bDepart").focus(); return; }
-  const ink = (COLORS.find(c => c[0] === B.color) || COLORS[0])[1];
+  const ink = (COLORS.find(c => c[0] === B.color) || [0, inkFor(B.color)])[1];
   const trip = {
     v:1, city:B.city.s && B.city.r ? B.city.s : "live:" + B.city.n, cityName:B.city.n, state:B.city.st || "", center:B.city.c || null,
     name:$("#bName").value.trim() || "", arrive, depart, travelers:B.people.slice(),
